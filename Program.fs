@@ -6,6 +6,11 @@ type Number =
     | Int of int
     | Float of float
 
+    override this.ToString() =
+        match this with
+        | Int x -> $"{x}"
+        | Float x -> $"{x}"
+
 module Number =
 
     let private operator fnInt fnFloat x y =
@@ -33,10 +38,6 @@ module Number =
     let le = predicate (<=) (<=)
     let eq = predicate (=) (=)
 
-    let toString = function
-        | Int x -> $"{x}"
-        | Float x -> $"{x}"
-
 type SExpr =
     | Symbol of string
     | Number of Number
@@ -48,7 +49,7 @@ type SExpr =
     override this.ToString() =
         match this with
         | Symbol s -> s
-        | Number x -> Number.toString x
+        | Number x -> $"{x}"
         | Boolean b -> if b then "true" else "false"
         | Builtin f -> "<function>"
         | Lambda (parameters, body) -> $"(fn ({String.Join(' ', parameters)}) {body})"

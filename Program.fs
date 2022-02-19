@@ -204,29 +204,27 @@ module Parser =
             .Split([| ' '; '\t'; '\n' |], StringSplitOptions.RemoveEmptyEntries)
         |> List.ofArray
 
-    let rec private read (tokens: string list) =
+    let rec private readList acc = function
+        | head :: tail when head = ")" ->
+            acc |> List.rev |> List, tail
+        | tokens ->
+            let sexpr, tail = readSExpr tokens
+            readList (sexpr :: acc) tail
 
-        let rec loop acc = function
-            | head :: tail when head = ")" ->
-                acc |> List.rev |> List, tail
-            | tokens ->
-                let sexpr, tail = read tokens
-                loop (sexpr :: acc) tail
-
-        match tokens with
+    and private readSExpr = function
         | [] ->
             failwith "Unexpected end of input."
         | head :: tail ->
             match head with
             | "(" ->
-                loop [] tail
+                readList [] tail
             | ")" ->
                 failwith "Unexpected \")\"."
             | _ ->
                 Primitive.parse head, tail
 
     let parse chars =
-        match chars |> tokenize |> read with
+        match chars |> tokenize |> readSExpr with
         | sexpr, [] -> sexpr
         | _ -> failwith "The input is not a single expression."
 

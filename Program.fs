@@ -124,8 +124,8 @@ module SExpr =
 
     let private reduceNumbers f = List.map toNumber >> List.reduce f >> Number
     
-    let private forAllNumbers f xs =
-        match xs |> List.map toNumber with
+    let private forAllNumbers f =
+        List.map toNumber >> function
         | head :: tail ->
             tail |> List.forall (f head) |> Boolean
         | [] -> Boolean false
@@ -141,17 +141,15 @@ module SExpr =
     let le = forAllNumbers Number.le |> Builtin
     let eq = forAllNumbers Number.eq |> Builtin
 
-    let head sexpr =
-        match sexpr with
+    let head = function
         | List (head :: _) -> head
         | List [] -> failwith "An empty list has no head."
-        | _ -> wrongType sexpr "list"
+        | sexpr -> wrongType sexpr "list"
     
-    let tail sexpr =
-        match sexpr with
+    let tail = function
         | List (_ :: tail) -> List tail
         | List [] -> failwith "An empty list has no tail."
-        | _ -> wrongType sexpr "list"
+        | sexpr -> wrongType sexpr "list"
     
     let private matchSpecialForm symbol = function
         | List (Symbol s :: tail) when s = symbol -> Some tail
@@ -224,8 +222,8 @@ module Parser =
             | _ ->
                 Primitive.parse head, tail
 
-    let parse chars =
-        match chars |> tokenize |> readSExpr with
+    let parse =
+        tokenize >> readSExpr >> function
         | sexpr, [] -> sexpr
         | _ -> failwith "The input is not a single expression."
 

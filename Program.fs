@@ -112,27 +112,27 @@ module SExpr =
 
     let print x =  printfn $"{x}"
 
-    let private toNumber = function
-        | Number x -> x
-        | x -> wrongType x "number"
-
     let private toSymbol = function
         | Symbol s -> s
         | x -> wrongType x "symbol"
 
-    let private foldNumbers f x0 = List.map toNumber >> List.fold f x0 >> Number
+    let private liftOperator operator wrap (s: SExpr) (x: SExpr) =
+        match s, x with
+        | Number s, Number x -> wrap (operator s x)
+        | Number _, x -> wrongType x "number"
+        | s, _ -> wrongType s "number"
 
-    let private reduceNumbers f = List.map toNumber >> List.reduce f >> Number
+    let private foldNumbers operator x0 = List.fold (liftOperator operator Number) x0
+
+    let private reduceNumbers operator = List.reduce (liftOperator operator Number)
     
-    let private forAllNumbers f =
-        List.map toNumber >> function
-        | head :: tail ->
-            tail |> List.forall (f head) |> Boolean
+    let private forAllNumbers predicate = function
+        | head :: tail -> tail |> List.forall (liftOperator predicate id head) |> Boolean
         | [] -> Boolean false
 
-    let add = foldNumbers Number.add (Int 0) |> Builtin
+    let add = foldNumbers Number.add (Number (Int 0)) |> Builtin
     let sub = reduceNumbers Number.sub |> Builtin
-    let mul = foldNumbers Number.mul (Int 1) |> Builtin
+    let mul = foldNumbers Number.mul (Number (Int 1)) |> Builtin
     let div = reduceNumbers Number.div |> Builtin
 
     let gt = forAllNumbers Number.gt |> Builtin

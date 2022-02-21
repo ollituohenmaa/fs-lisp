@@ -90,6 +90,9 @@ type Environment(map: Map<string, SExpr>, parent: Environment option) =
         | Some value, _ -> value
         | None, Some parent -> parent.Find(s)
         | None, _ -> failwith $"\"{s}\" is undefined."
+    
+    member this.CreateFunctionEnvironment(parameters, arguments) =
+        Environment((parameters, arguments) ||> List.zip |> Map.ofList, Some this)
 
 module Keyword =
 
@@ -101,6 +104,9 @@ module Keyword =
 
     [<Literal>]
     let Conditional = "if"
+
+    [<Literal>]
+    let Quote = "quote"
 
 module SExpr =
 
@@ -171,6 +177,12 @@ module SExpr =
         matchSpecialForm Keyword.Conditional >> (Option.map (function
             | [ condition; trueBranch; falseBranch ] -> condition, trueBranch, falseBranch
             | xs -> wrongNumberOfArguments Keyword.Conditional 3 xs))
+    
+    let private (|QuoteForm|_|) =
+        matchSpecialForm Keyword.Quote >> (Option.map (function
+            | [ List _ as list ] -> list
+            | [ x ] -> wrongType x "list"
+            | xs -> wrongNumberOfArguments Keyword.Quote 1 xs))
 
     let rec eval (env: Environment) = function
         | DefinitionForm (s, sexpr) ->
@@ -179,24 +191,24 @@ module SExpr =
         | LambdaForm lambda -> lambda
         | ConditionalForm (condition, trueBranch, falseBranch) ->
             match eval env condition with
-            | Boolean b -> if b then trueBranch else falseBranch
+            | Boolean b -> (if b then trueBranch else falseBranch) |> eval env
             | x -> wrongType x "boolean"
-            |> eval env
-        | List [ Symbol "quote"; sexpr ] -> sexpr
+        | QuoteForm list -> list
         | Symbol s -> env.Find(s)
         | List (head :: tail) ->
             let arguments = tail |> List.map (eval env)
             match eval env head with
             | Builtin f -> f arguments
-            | Lambda (parameters, body) ->
-                let functionEnv = Environment((parameters, arguments) ||> List.zip |> Map.ofList, Some env)
-                eval functionEnv body
+            | Lambda (parameters, body) -> eval (env.CreateFunctionEnvironment(parameters, arguments)) body
             | sexpr -> wrongType sexpr "function"
         | sexpr -> sexpr
 
 module Parser =
 
     let private tokenize (chars: string) =
+        // wow
+        // so lexer
+        // many logic
         chars
             .Replace("(", " ( ")
             .Replace(")", " ) ")

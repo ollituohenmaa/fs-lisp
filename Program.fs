@@ -2,6 +2,10 @@ module FsLisp
 
 open System
 
+exception LispError of message: string
+
+let lispError message = raise (LispError message)
+
 type Number =
     | Int of int
     | Float of float
@@ -56,142 +60,130 @@ type SExpr =
         | List [] -> "()"
         | List xs -> $"({String.Join(' ', xs)})"
 
-module Primitive =
-
-    let private tryParse (parser: string -> bool * _) =
-        parser >> function
-        | true, x -> Some x
-        | false, _ -> None
-    
-    let private (|Int|_|) = tryParse Int32.TryParse
-
-    let private (|Float|_|) = tryParse Double.TryParse
-
-    let private (|Boolean|_|) = function
-        | "true" -> Some true
-        | "false" -> Some false
-        | _ -> None
-
-    let parse = function
-        | Int x -> Int x |> Number
-        | Float x -> Float x |> Number
-        | Boolean b -> Boolean b
-        | s -> Symbol s
-
-type Environment(map: Map<string, SExpr>, parent: Environment option) =
+type Environment(map: Map<string, SExpr>, ?parent: Environment) =
 
     let mutable map = map
 
-    member _.Add(symbol, sexpr) =
-        map <- map.Add(symbol, sexpr)
+    member _.Add(symbol, expr) =
+        map <- map.Add(symbol, expr)
 
     member _.Find(s) =
         match map.TryFind(s), parent with
         | Some value, _ -> value
         | None, Some parent -> parent.Find(s)
-        | None, _ -> failwith $"\"{s}\" is undefined."
+        | None, _ -> lispError $"\"{s}\" is undefined."
     
     member this.CreateFunctionEnvironment(parameters, arguments) =
-        Environment((parameters, arguments) ||> List.zip |> Map.ofList, Some this)
-
-module Keyword =
-
-    [<Literal>]
-    let Definition = "def"
-
-    [<Literal>]
-    let Lambda = "fn"
-
-    [<Literal>]
-    let Conditional = "if"
-
-    [<Literal>]
-    let Quote = "quote"
+        Environment((parameters, arguments) ||> List.zip |> Map.ofList, this)
 
 module SExpr =
 
+    module private Keyword =
+
+        [<Literal>]
+        let Definition = "def"
+
+        [<Literal>]
+        let Lambda = "fn"
+
+        [<Literal>]
+        let Conditional = "if"
+
+        [<Literal>]
+        let Quote = "quote"
+
     let private wrongType value expectedType =
-        failwith $"\"{value}\" is not a {expectedType}."
+        lispError $"\"{value}\" is not a {expectedType}."
 
     let private wrongNumberOfArguments name expected got =
-        failwith $"\"{name}\" called with a wrong number of arguments (expected {expected}, got {List.length got})."
+        lispError $"\"{name}\" called with a wrong number of arguments (expected {expected}, got {List.length got})."
 
-    let print x =  printfn $"{x}"
-
-    let private toSymbol = function
+    let private toSymbol expr =
+        match expr with
         | Symbol s -> s
-        | x -> wrongType x "symbol"
+        | _ -> wrongType expr "symbol"
 
-    let private liftOperator operator wrap (s: SExpr) (x: SExpr) =
+    let private liftOperator operator (s: SExpr) (x: SExpr) =
         match s, x with
-        | Number s, Number x -> wrap (operator s x)
+        | Number s, Number x -> (s, x) ||> operator
         | Number _, x -> wrongType x "number"
         | s, _ -> wrongType s "number"
 
-    let private foldNumbers operator x0 = List.fold (liftOperator operator Number) x0
+    let private foldNumbers operator x0 = List.fold (liftOperator (fun s x -> Number (operator s x))) x0
 
-    let private reduceNumbers operator = List.reduce (liftOperator operator Number)
+    let private reduceNumbers operator = List.reduce (liftOperator (fun s x -> Number (operator s x)))
     
-    let private forAllNumbers predicate = function
-        | head :: tail -> tail |> List.forall (liftOperator predicate id head) |> Boolean
+    let private compareNumbers predicate xs =
+        match xs with
+        | head :: tail -> tail |> List.forall (liftOperator predicate head) |> Boolean
         | [] -> Boolean false
 
-    let add = foldNumbers Number.add (Number (Int 0)) |> Builtin
-    let sub = reduceNumbers Number.sub |> Builtin
-    let mul = foldNumbers Number.mul (Number (Int 1)) |> Builtin
-    let div = reduceNumbers Number.div |> Builtin
+    let add = foldNumbers Number.add (Number (Int 0))
+    let sub = reduceNumbers Number.sub
+    let mul = foldNumbers Number.mul (Number (Int 1))
+    let div = reduceNumbers Number.div
 
-    let gt = forAllNumbers Number.gt |> Builtin
-    let ge = forAllNumbers Number.ge |> Builtin
-    let lt = forAllNumbers Number.lt |> Builtin
-    let le = forAllNumbers Number.le |> Builtin
-    let eq = forAllNumbers Number.eq |> Builtin
+    let gt = compareNumbers Number.gt
+    let ge = compareNumbers Number.ge
+    let lt = compareNumbers Number.lt
+    let le = compareNumbers Number.le
+    let eq = compareNumbers Number.eq
 
-    let head = function
-        | List (head :: _) -> head
-        | List [] -> failwith "An empty list has no head."
-        | sexpr -> wrongType sexpr "list"
+    let head xs =
+        match xs with
+        | [ List (head :: _) ] -> head
+        | [ List []] -> lispError "An empty list has no head."
+        | [ expr ] -> wrongType expr "list"
+        | _ -> wrongNumberOfArguments "head" 1 xs
     
-    let tail = function
-        | List (_ :: tail) -> List tail
-        | List [] -> failwith "An empty list has no tail."
-        | sexpr -> wrongType sexpr "list"
+    let tail xs =
+        match xs with
+        | [ List (_ :: tail) ] -> List tail
+        | [ List [] ] -> lispError "An empty list has no tail."
+        | [ expr ] -> wrongType expr "list"
+        | _ -> wrongNumberOfArguments "tail" 1 xs
     
-    let private matchSpecialForm symbol = function
-        | List (Symbol s :: tail) when s = symbol -> Some tail
+    let println (xs: SExpr list) =
+        printfn $"{String.Join(' ', xs)}"
+        List []
+    
+    let private matchSpecialForm symbol fn expr =
+        match expr with
+        | List (Symbol s :: tail) when s = symbol -> Some (fn tail)
         | _ -> None
 
     let private (|DefinitionForm|_|) =
-        matchSpecialForm Keyword.Definition >> (Option.map (function
-            | [ Symbol s; sexpr ] -> s, sexpr
+        matchSpecialForm Keyword.Definition (function
+            | [ Symbol s; expr ] -> s, expr
             | [ x; _ ] -> wrongType x "symbol"
-            | xs -> wrongNumberOfArguments Keyword.Definition 2 xs))
+            | xs -> wrongNumberOfArguments Keyword.Definition 2 xs)
 
     let private (|LambdaForm|_|) =
-        matchSpecialForm Keyword.Lambda >> (Option.map (function
+        matchSpecialForm Keyword.Lambda (function
             | [ List parameters; body ] -> Lambda ((parameters |> List.map toSymbol), body)
             | [ x; _ ] -> wrongType x "list"
-            | xs -> wrongNumberOfArguments Keyword.Lambda 2 xs))
+            | xs -> wrongNumberOfArguments Keyword.Lambda 2 xs)
 
     let private (|ConditionalForm|_|) =
-        matchSpecialForm Keyword.Conditional >> (Option.map (function
+        matchSpecialForm Keyword.Conditional (function
             | [ condition; trueBranch; falseBranch ] -> condition, trueBranch, falseBranch
-            | xs -> wrongNumberOfArguments Keyword.Conditional 3 xs))
+            | xs -> wrongNumberOfArguments Keyword.Conditional 3 xs)
     
     let private (|QuoteForm|_|) =
-        matchSpecialForm Keyword.Quote >> (Option.map (function
-            | [ List _ as list ] -> list
-            | [ x ] -> wrongType x "list"
-            | xs -> wrongNumberOfArguments Keyword.Quote 1 xs))
+        matchSpecialForm Keyword.Quote (function
+            | [ x ] -> x
+            | xs -> wrongNumberOfArguments Keyword.Quote 1 xs)
 
-    let rec eval (env: Environment) = function
-        | DefinitionForm (s, sexpr) ->
-            env.Add(s, eval env sexpr)
+    let rec eval (env: Environment) expr =
+        match expr with
+        | DefinitionForm (s, expr) ->
+            env.Add(s, eval env expr)
             List []
         | LambdaForm lambda -> lambda
         | ConditionalForm (condition, trueBranch, falseBranch) ->
             match eval env condition with
-            | Boolean b -> (if b then trueBranch else falseBranch) |> eval env
+            | Boolean true -> eval env trueBranch
+            | Boolean false -> eval env falseBranch
             | x -> wrongType x "boolean"
         | QuoteForm list -> list
         | Symbol s -> env.Find(s)
@@ -200,10 +192,23 @@ module SExpr =
             match eval env head with
             | Builtin f -> f arguments
             | Lambda (parameters, body) -> eval (env.CreateFunctionEnvironment(parameters, arguments)) body
-            | sexpr -> wrongType sexpr "function"
-        | sexpr -> sexpr
+            | expr -> wrongType expr "function"
+        | _ -> expr
 
 module Parser =
+
+    let private toOption<'a> (success, x: 'a) =
+        if success then Some x else None
+    
+    let private (|Int|_|) (s: string) = s |> Int32.TryParse |> toOption
+
+    let private (|Float|_|) (s: string) = s |> Double.TryParse |> toOption
+
+    let private (|Boolean|_|) s =
+        match s with
+        | "true" -> Some true
+        | "false" -> Some false
+        | _ -> None
 
     let private tokenize (chars: string) =
         // wow
@@ -215,52 +220,64 @@ module Parser =
             .Split([| ' '; '\t'; '\n' |], StringSplitOptions.RemoveEmptyEntries)
         |> List.ofArray
 
-    let rec private readList acc = function
+    let rec private readList acc xs =
+        match xs with
         | head :: tail when head = ")" ->
             acc |> List.rev |> List, tail
         | tokens ->
-            let sexpr, tail = readSExpr tokens
-            readList (sexpr :: acc) tail
+            let expr, tail = readSExpr tokens
+            readList (expr :: acc) tail
 
-    and private readSExpr = function
+    and private readSExpr tokens =
+        match tokens with
         | [] ->
-            failwith "Unexpected end of input."
+            lispError "Unexpected end of input."
         | head :: tail ->
             match head with
-            | "(" ->
-                readList [] tail
-            | ")" ->
-                failwith "Unexpected \")\"."
-            | _ ->
-                Primitive.parse head, tail
+            | "(" -> readList [] tail
+            | ")" -> lispError "Unexpected \")\"."
+            | Int x -> Number (Int x), tail
+            | Float x -> Number (Float x), tail
+            | Boolean b -> Boolean b, tail
+            | s -> Symbol s, tail
 
-    let parse =
-        tokenize >> readSExpr >> function
-        | sexpr, [] -> sexpr
-        | _ -> failwith "The input is not a single expression."
+    let parse input =
+        match input |> tokenize |> readSExpr with
+        | expr, [] -> expr
+        | _ -> lispError "The input is not a single expression."
 
-let builtins =
-    [ "+", SExpr.add
-      "-", SExpr.sub
-      "*", SExpr.mul
-      "/", SExpr.div
-      ">", SExpr.gt
-      ">=", SExpr.ge
-      "<", SExpr.lt
-      "<=", SExpr.le
-      "=", SExpr.eq
-      "do", Builtin List.last
-      "head", Builtin (List.head >> SExpr.head)
-      "tail", Builtin (List.head >> SExpr.tail) ]
-    |> Map.ofList
+type Environment with
 
-let globalEnv = Environment(builtins, None)
+    member this.Eval(expr) = SExpr.eval this expr
+
+module Environment =
+
+    let private builtins =
+        [ "+", SExpr.add
+          "-", SExpr.sub
+          "*", SExpr.mul
+          "/", SExpr.div
+          ">", SExpr.gt
+          ">=", SExpr.ge
+          "<", SExpr.lt
+          "<=", SExpr.le
+          "=", SExpr.eq
+          "do", List.last
+          "head", SExpr.head
+          "tail", SExpr.tail
+          "println", SExpr.println ]
+        |> List.map (fun (s, v) -> (s, Builtin v))
+        |> Map.ofList
+
+    let createDefaultEnvironment() = Environment(builtins)
+
+let globalEnv = Environment.createDefaultEnvironment()
 
 while true do
     try
-        ReadLine.Read(">>= ")
-        |> Parser.parse
-        |> SExpr.eval globalEnv
-        |> SExpr.print
-    with e ->
-        printfn $"Error: {e.Message}"
+        let expr = ReadLine.Read(">>= ") |> Parser.parse
+        let output = globalEnv.Eval(expr)
+        printfn $"{output}"
+    with
+    | LispError message -> printfn $"Error: {message}"
+    | exn -> printfn $"An unexpected error occurred. {exn.Message}"

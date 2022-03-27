@@ -53,38 +53,68 @@ body {
     font-size: 16px;
     font-family: 'Jetbrains Mono', monospace;
     line-height: 150%;
+    height: 100vh;
+    width: 100vw;
+
 }
 
 #root {
-    height: 100vh;
+    height: 100%;
+    width: 100%;
     display: grid;
+    grid-template-columns: max-content 2fr;
+    grid-gap: 1rem;
     align-items: center;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+.env {
+    background-color: hsl(200, 30%, 20%);
+    height: calc(100vh - 2rem);
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 1rem;
+    border-radius: 4px;
+    padding: 1rem;
+    overflow-y: scroll;
+    box-shadow: 2px 4px 8px 0 rgba(0, 0, 0, 0.2);
+}
+
+.env td span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 20ch;
+}
+
+.env td:first-child {
+    padding-right: 1rem;
 }
 
 .repl {
     background-color: hsl(200, 30%, 20%);
     display: grid;
     grid-template-rows: 1fr max-content;
-    width: 80ch;
-    max-width: 90vw;
+    height: calc(100vh - 2rem);
+    width: 100%;
     box-sizing: border-box;
-    margin-left: auto;
-    margin-right: auto;
     font-size: 1rem;
-    bottom: 1rem;
     border-radius: 4px;
+    box-shadow: 2px 4px 8px 0 rgba(0, 0, 0, 0.2);
 }
 
 .history {
-    height: 80vh;
     overflow-y: scroll;
-    line-height: 175%;
+    height: 100%
 }
 
 input[type="text"] {
     border: 0;
     outline: 0;
-    background-color: hsl(200, 30%, 35%);
+    background-color: hsl(200, 30%, 25%);
+    border-top: 1px solid hsl(200, 30%, 15%);
     color: hsl(200, 30%, 90%);
     padding: 1rem;
     border-radius: 0 0 4px 4px;
@@ -102,11 +132,11 @@ dl {
     margin: 1rem;
 }
 
-dt {
+dt, .symbol {
     cursor: pointer;
 }
 
-dt:hover {
+dt:hover, .symbol:hover {
     color: white;
 }
 
@@ -118,6 +148,27 @@ dd {
     color: hsl(350, 90%, 70%);
 }
 
+.list {
+    color: hsl(140, 50%, 80%);
+}
+
 .uninteresting {
     color: hsl(200, 30%, 60%);
+}
+
+::-webkit-scrollbar {
+    width: 0.5rem;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: hsla(200, 30%, 50%, 0.2);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: hsla(200, 30%, 50%, 0.4);
 }

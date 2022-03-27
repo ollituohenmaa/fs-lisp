@@ -58,11 +58,20 @@ type SExpr =
         | Lambda (parameters, body) ->
             sprintf "(fn (%s) %s)" (String.Join(" ", parameters)) (string body)
         | List [] -> "()"
-        | List xs -> $"""({String.Join(" ", xs)})"""
+        | List xs -> sprintf "(%s)" (String.Join(" ", xs))
 
 type Environment(map: Map<string, SExpr>, ?parent: Environment) =
 
     let mutable map = map
+
+    let exprOrdering expr =
+        match expr with
+        | Symbol _ -> 3
+        | Number _ -> 5
+        | Boolean _ -> 4
+        | Builtin _ -> 0
+        | Lambda _ -> 1
+        | List _ -> 2
 
     member _.Add(symbol, expr) =
         map <- map.Add(symbol, expr)
@@ -75,6 +84,9 @@ type Environment(map: Map<string, SExpr>, ?parent: Environment) =
     
     member this.CreateFunctionEnvironment(parameters, arguments) =
         Environment((parameters, arguments) ||> List.zip |> Map.ofList, this)
+    
+    member _.ToArray() =
+        map |> Map.toArray |> Array.sortBy (fun (s, e) -> (exprOrdering e, s))
 
 module SExpr =
 

@@ -1,0 +1,123 @@
+html, body, div, span, applet, object, iframe,
+h1, h2, h3, h4, h5, h6, p, blockquote, pre,
+a, abbr, acronym, address, big, cite, code,
+del, dfn, em, img, ins, kbd, q, s, samp,
+small, strike, strong, sub, sup, tt, var,
+b, u, i, center,
+dl, dt, dd, ol, ul, li,
+fieldset, form, label, legend,
+table, caption, tbody, tfoot, thead, tr, th, td,
+article, aside, canvas, details, embed, 
+figure, figcaption, footer, header, hgroup, 
+menu, nav, output, ruby, section, summary,
+time, mark, audio, video {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: 100%;
+	font: inherit;
+	vertical-align: baseline;
+}
+
+article, aside, details, figcaption, figure, 
+footer, header, hgroup, menu, nav, section {
+	display: block;
+}
+
+body {
+	line-height: 1;
+}
+
+ol, ul {
+	list-style: none;
+}
+
+blockquote, q {
+	quotes: none;
+}
+
+blockquote:before, blockquote:after,
+q:before, q:after {
+	content: '';
+	content: none;
+}
+
+table {
+	border-collapse: collapse;
+	border-spacing: 0;
+}
+
+body {
+    background-color: hsl(200, 30%, 15%);
+    color: hsl(200, 30%, 80%);
+    font-size: 16px;
+    font-family: 'Jetbrains Mono', monospace;
+    line-height: 150%;
+}
+
+#root {
+    height: 100vh;
+    display: grid;
+    align-items: center;
+}
+
+.repl {
+    background-color: hsl(200, 30%, 20%);
+    display: grid;
+    grid-template-rows: 1fr max-content;
+    width: 80ch;
+    max-width: 90vw;
+    box-sizing: border-box;
+    margin-left: auto;
+    margin-right: auto;
+    font-size: 1rem;
+    bottom: 1rem;
+    border-radius: 4px;
+}
+
+.history {
+    height: 80vh;
+    overflow-y: scroll;
+    line-height: 175%;
+}
+
+input[type="text"] {
+    border: 0;
+    outline: 0;
+    background-color: hsl(200, 30%, 35%);
+    color: hsl(200, 30%, 90%);
+    padding: 1rem;
+    border-radius: 0 0 4px 4px;
+    font-family: 'Jetbrains Mono', monospace;
+    font-size: 1rem;
+    line-height: 150%;
+}
+
+input:active {
+    border: 0;
+    outline: 0;
+}
+
+dl {
+    margin: 1rem;
+}
+
+dt {
+    cursor: pointer;
+}
+
+dt:hover {
+    color: white;
+}
+
+dd {
+    color: white;
+}
+
+.error {
+    color: hsl(350, 90%, 70%);
+}
+
+.uninteresting {
+    color: hsl(200, 30%, 60%);
+}

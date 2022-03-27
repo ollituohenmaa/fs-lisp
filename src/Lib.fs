@@ -1,10 +1,9 @@
-module FsLisp
+namespace FsLisp
 
 open System
 
-exception LispError of message: string
-
-let lispError message = raise (LispError message)
+exception LispError of message: string with
+    static member raise(message) = raise (LispError message)
 
 type Number =
     | Int of int
@@ -12,8 +11,8 @@ type Number =
 
     override this.ToString() =
         match this with
-        | Int x -> $"{x}"
-        | Float x -> $"{x}"
+        | Int x -> string x
+        | Float x -> string x
 
 module Number =
 
@@ -53,12 +52,13 @@ type SExpr =
     override this.ToString() =
         match this with
         | Symbol s -> s
-        | Number x -> $"{x}"
+        | Number x -> string x
         | Boolean b -> if b then "true" else "false"
         | Builtin f -> "<function>"
-        | Lambda (parameters, body) -> $"(fn ({String.Join(' ', parameters)}) {body})"
+        | Lambda (parameters, body) ->
+            sprintf "(fn (%s) %s)" (String.Join(" ", parameters)) (string body)
         | List [] -> "()"
-        | List xs -> $"({String.Join(' ', xs)})"
+        | List xs -> $"""({String.Join(" ", xs)})"""
 
 type Environment(map: Map<string, SExpr>, ?parent: Environment) =
 
@@ -71,7 +71,7 @@ type Environment(map: Map<string, SExpr>, ?parent: Environment) =
         match map.TryFind(s), parent with
         | Some value, _ -> value
         | None, Some parent -> parent.Find(s)
-        | None, _ -> lispError $"\"{s}\" is undefined."
+        | None, _ -> LispError.raise $"\"{s}\" is undefined."
     
     member this.CreateFunctionEnvironment(parameters, arguments) =
         Environment((parameters, arguments) ||> List.zip |> Map.ofList, this)
@@ -93,10 +93,10 @@ module SExpr =
         let Quote = "quote"
 
     let private wrongType value expectedType =
-        lispError $"\"{value}\" is not a {expectedType}."
+        LispError.raise $"\"{value}\" is not a {expectedType}."
 
     let private wrongNumberOfArguments name expected got =
-        lispError $"\"{name}\" called with a wrong number of arguments (expected {expected}, got {List.length got})."
+        LispError.raise $"\"{name}\" called with a wrong number of arguments (expected {expected}, got {List.length got})."
 
     let private toSymbol expr =
         match expr with
@@ -132,20 +132,16 @@ module SExpr =
     let head xs =
         match xs with
         | [ List (head :: _) ] -> head
-        | [ List []] -> lispError "An empty list has no head."
+        | [ List []] -> LispError.raise "An empty list has no head."
         | [ expr ] -> wrongType expr "list"
         | _ -> wrongNumberOfArguments "head" 1 xs
     
     let tail xs =
         match xs with
         | [ List (_ :: tail) ] -> List tail
-        | [ List [] ] -> lispError "An empty list has no tail."
+        | [ List [] ] -> LispError.raise "An empty list has no tail."
         | [ expr ] -> wrongType expr "list"
         | _ -> wrongNumberOfArguments "tail" 1 xs
-    
-    let println (xs: SExpr list) =
-        printfn $"{String.Join(' ', xs)}"
-        List []
     
     let private matchSpecialForm symbol fn expr =
         match expr with
@@ -231,24 +227,31 @@ module Parser =
     and private readSExpr tokens =
         match tokens with
         | [] ->
-            lispError "Unexpected end of input."
+            LispError.raise "Unexpected end of input."
         | head :: tail ->
             match head with
             | "(" -> readList [] tail
-            | ")" -> lispError "Unexpected \")\"."
+            | ")" -> LispError.raise "Unexpected \")\"."
             | Int x -> Number (Int x), tail
             | Float x -> Number (Float x), tail
             | Boolean b -> Boolean b, tail
             | s -> Symbol s, tail
 
     let parse input =
-        match input |> tokenize |> readSExpr with
-        | expr, [] -> expr
-        | _ -> lispError "The input is not a single expression."
+        try
+            match input |> tokenize |> readSExpr with
+            | expr, [] -> Ok expr
+            | _ -> Error "The input is not a single expression."
+        with _ -> Error "Something went wrong."
+        
 
 type Environment with
 
-    member this.Eval(expr) = SExpr.eval this expr
+    member this.Eval(expr) =
+        try SExpr.eval this expr |> Ok
+        with
+        | LispError s -> Error s
+        | _ -> Error "Something went wrong."
 
 module Environment =
 
@@ -264,20 +267,8 @@ module Environment =
           "=", SExpr.eq
           "do", List.last
           "head", SExpr.head
-          "tail", SExpr.tail
-          "println", SExpr.println ]
+          "tail", SExpr.tail ]
         |> List.map (fun (s, v) -> (s, Builtin v))
         |> Map.ofList
 
     let createDefaultEnvironment() = Environment(builtins)
-
-let globalEnv = Environment.createDefaultEnvironment()
-
-while true do
-    try
-        let expr = ReadLine.Read(">>= ") |> Parser.parse
-        let output = globalEnv.Eval(expr)
-        printfn $"{output}"
-    with
-    | LispError message -> printfn $"Error: {message}"
-    | exn -> printfn $"An unexpected error occurred. {exn.Message}"

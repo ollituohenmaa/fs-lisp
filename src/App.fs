@@ -4,31 +4,38 @@ open Browser
 open Browser.Types
 open Feliz
 
-let fib = "(def fib (fn (n) (if (< n 2) n (+ (fib (- n 1)) (fib (- n 2))))))"
+let samples =
+    [| "(def pi 3.14159)"
+       "(def circle-area (fn (r) (* pi (* r r))))"
+       "(map circle-area (range 1 5))" |]
 
 [<ReactComponent>]
 let Expr(expr: SExpr) =
-    match expr with
-    | Builtin _
-    | List [] ->
-        Html.span [
-            prop.className "uninteresting"
-            prop.text (string expr)
-        ]
-    | List _
-    | Lambda _ ->
-        Html.span [
-            prop.className "list"
-            prop.text (string expr)
-        ]
-    | _ -> Html.dd (string expr)
+
+    let className =
+        match expr with
+        | Builtin _ -> "builtin"
+        | Nil -> "nil"
+        | List _ -> "list"
+        | Lambda _ -> "lambda"
+        | Number _ -> "number"
+        | Boolean _ -> "boolean"
+        | Symbol _ -> "symbol"
+    
+    let expr = string expr
+
+    Html.div [
+        prop.className className
+        prop.title expr
+        prop.text expr
+    ]
 
 [<ReactComponent>]
 let Repl(env: Environment) =
-    let (input, setInput) = React.useState("(fib 10)")
-    let (history, updateHistory) = React.useStateWithUpdater([||])
-    let historyRef = React.useRef(None)
-    let inputRef = React.useRef(None)
+    let (input, setInput) = React.useState ""
+    let (history, updateHistory) = React.useStateWithUpdater [||]
+    let historyRef = React.useRef None
+    let inputRef = React.useRef None
 
     let update input =
         match Parser.parse input with
@@ -38,7 +45,7 @@ let Repl(env: Environment) =
         | Error message ->
             updateHistory (fun xs -> [| yield! xs; (input, Error message) |])
 
-    React.useEffectOnce (fun () -> update fib)
+    React.useEffectOnce (fun () -> samples |> Array.iter update)
 
     React.useEffect(fun () ->
         historyRef.current |> Option.iter (fun current ->
@@ -58,9 +65,14 @@ let Repl(env: Environment) =
                             for (symbol, expr) in env.ToArray() do
                                 Html.tr [
                                     Html.td [
-                                        prop.className "symbol"
+                                        prop.title symbol
                                         prop.onClick (fun _ -> setInput symbol)
-                                        prop.text symbol
+                                        prop.children [
+                                            Html.div [
+                                                prop.className "symbol"
+                                                prop.text (string symbol)
+                                            ]
+                                        ]
                                     ]
                                     Html.td [
                                         Expr(expr)

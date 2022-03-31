@@ -41,6 +41,7 @@ module Number =
     let le = predicate (<=) (<=)
     let eq = predicate (=) (=)
 
+[<CustomEquality; NoComparison>]
 type SExpr =
     | Symbol of string
     | Number of Number
@@ -48,17 +49,35 @@ type SExpr =
     | Builtin of (SExpr list -> SExpr)
     | Lambda of parameters: string list * body: SExpr
     | List of SExpr list
+    | Nil
 
     override this.ToString() =
         match this with
         | Symbol s -> s
         | Number x -> string x
         | Boolean b -> if b then "true" else "false"
-        | Builtin f -> "<function>"
+        | Builtin f -> "<builtin>"
         | Lambda (parameters, body) ->
             sprintf "(fn (%s) %s)" (String.Join(" ", parameters)) (string body)
-        | List [] -> "()"
         | List xs -> sprintf "(%s)" (String.Join(" ", xs))
+        | Nil -> "nil"
+
+    override this.Equals(other) =
+        match other with
+        | :? SExpr as other ->
+            match this, other with
+            | Builtin _, Builtin _ -> false
+            | Symbol a, Symbol b -> a = b
+            | Number a, Number b -> Number.eq a b
+            | Boolean a, Boolean b -> a = b
+            | Lambda (a1, a2), Lambda (b1, b2) -> a1 = b1 && a2 = b2
+            | List a, List b -> a = b
+            | Nil, Nil -> true
+            | _ -> false
+        | _ -> false
+    
+    override _.GetHashCode() =
+        raise (NotImplementedException())
 
 type Environment(map: Map<string, SExpr>, ?parent: Environment) =
 
@@ -66,12 +85,13 @@ type Environment(map: Map<string, SExpr>, ?parent: Environment) =
 
     let exprOrdering expr =
         match expr with
-        | Symbol _ -> 3
-        | Number _ -> 5
-        | Boolean _ -> 4
         | Builtin _ -> 0
         | Lambda _ -> 1
         | List _ -> 2
+        | Symbol _ -> 3
+        | Boolean _ -> 4
+        | Number _ -> 5
+        | Nil -> 6
 
     member _.Add(symbol, expr) =
         map <- map.Add(symbol, expr)
@@ -139,19 +159,24 @@ module SExpr =
     let ge = compareNumbers Number.ge
     let lt = compareNumbers Number.lt
     let le = compareNumbers Number.le
-    let eq = compareNumbers Number.eq
+
+    let cons xs =
+        match xs with
+        | [ x; List ys ] -> List (x :: ys)
+        | [ _; expr ] -> wrongType expr "list"
+        | _ -> wrongNumberOfArguments "cons" 2 xs
 
     let head xs =
         match xs with
         | [ List (head :: _) ] -> head
-        | [ List []] -> LispError.raise "An empty list has no head."
+        | [ List [] ] -> Nil
         | [ expr ] -> wrongType expr "list"
         | _ -> wrongNumberOfArguments "head" 1 xs
     
     let tail xs =
         match xs with
         | [ List (_ :: tail) ] -> List tail
-        | [ List [] ] -> LispError.raise "An empty list has no tail."
+        | [ List [] ] -> List []
         | [ expr ] -> wrongType expr "list"
         | _ -> wrongNumberOfArguments "tail" 1 xs
     
@@ -186,7 +211,7 @@ module SExpr =
         match expr with
         | DefinitionForm (s, expr) ->
             env.Add(s, eval env expr)
-            List []
+            Nil
         | LambdaForm lambda -> lambda
         | ConditionalForm (condition, trueBranch, falseBranch) ->
             match eval env condition with
@@ -247,6 +272,7 @@ module Parser =
             | Int x -> Number (Int x), tail
             | Float x -> Number (Float x), tail
             | Boolean b -> Boolean b, tail
+            | "nil" -> Nil, tail
             | s -> Symbol s, tail
 
     let parse input =
@@ -254,7 +280,9 @@ module Parser =
             match input |> tokenize |> readSExpr with
             | expr, [] -> Ok expr
             | _ -> Error "The input is not a single expression."
-        with _ -> Error "Something went wrong."
+        with exn ->
+            printfn "%A" exn
+            Error "Something went wrong."
         
 
 type Environment with
@@ -263,7 +291,9 @@ type Environment with
         try SExpr.eval this expr |> Ok
         with
         | LispError s -> Error s
-        | _ -> Error "Something went wrong."
+        | exn ->
+            printfn "%A" exn
+            Error "Something went wrong."
 
 module Environment =
 
@@ -276,11 +306,30 @@ module Environment =
           ">=", SExpr.ge
           "<", SExpr.lt
           "<=", SExpr.le
-          "=", SExpr.eq
+          "=", List.pairwise >> List.forall (fun (x, y) -> x = y) >> Boolean
           "do", List.last
+          "list", fun xs -> List (xs)
+          "cons", SExpr.cons
           "head", SExpr.head
           "tail", SExpr.tail ]
         |> List.map (fun (s, v) -> (s, Builtin v))
         |> Map.ofList
+    
+    let private lambdas =
+        [ "(def not (fn (x) (if x false true)))"
+          "(def != (fn (x y) (not (= x y))))"
+          "(def nil? (fn (x) (= x nil)))"
+          "(def fold (fn (f acc xs) (if (nil? (head xs)) acc (fold f (f acc (head xs)) (tail xs)))))"
+          "(def reverse (fn (xs) (fold (fn (acc x) (cons x acc)) () xs)))"
+          "(def map (fn (g xs) (reverse (fold (fn (acc x) (cons (g x) acc)) () xs))))"
+          "(def filter (fn (g xs) (reverse (fold (fn (acc x) (if (g x) (cons x acc) acc)) () xs))))"
+          "(def range (fn (x y) (if (= x y) () (cons x (range (+ x 1) y)))))" ]
+        |> List.choose (fun x ->
+            match Parser.parse x with
+            | Ok expr -> Some expr
+            | _ -> None)
 
-    let createDefaultEnvironment() = Environment(builtins)
+    let createDefaultEnvironment() =
+        let env = Environment(builtins)
+        lambdas |> List.iter (env.Eval >> ignore)
+        env

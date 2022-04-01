@@ -16,13 +16,13 @@ let keywords =
           Keyword.Quote ])
 
 [<ReactComponent>]
-let rec Expr(expr: SExpr) =
+let rec Expr (depth: int) (expr: SExpr) =
 
     let className =
         match expr with
         | Builtin _ -> "builtin"
         | Nil -> "nil"
-        | List _ -> "list"
+        | List _ -> $"list-{depth % 2}"
         | Lambda _ -> ""
         | Number _ -> "number"
         | Boolean _ -> "boolean"
@@ -35,10 +35,10 @@ let rec Expr(expr: SExpr) =
             prop.className className
             prop.children [
                 yield Html.span [ prop.text "(" ]
-                yield Expr(head)
+                yield Expr (depth + 1) head
                 for x in tail do
                     yield Html.span " "
-                    yield Expr(x)
+                    yield Expr (depth + 1) x
                 yield Html.span [ prop.text ")" ]
             ]
         ]
@@ -48,7 +48,7 @@ let rec Expr(expr: SExpr) =
             List [ for p in parameters do Symbol p ]
             body
         ]
-        |> Expr
+        |> Expr depth
     | _ ->
         Html.span [
             prop.className className
@@ -99,7 +99,7 @@ let Repl(env: Environment) =
                                         ]
                                     ]
                                     Html.td [
-                                        Expr(expr)
+                                        Expr 0 expr
                                     ]
                                 ]
                         ]
@@ -125,7 +125,7 @@ let Repl(env: Environment) =
                                     prop.onClick (fun _ -> setInput input)
                                     prop.children [
                                         match expr with
-                                        | Some expr -> Expr(expr)
+                                        | Some expr -> Expr 0 expr
                                         | None -> Html.span input
                                     ]
                                 ]
@@ -138,7 +138,7 @@ let Repl(env: Environment) =
                                         ]
                                     ]
                                 | Ok expr ->
-                                    Html.dd [ Expr(expr) ]
+                                    Html.dd [ Expr 0 expr ]
                             ]
                     ]
                 ]

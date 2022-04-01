@@ -83,8 +83,7 @@ type SExpr =
         | Number x -> string x
         | Boolean b -> if b then "true" else "false"
         | Builtin f -> "<builtin>"
-        | Lambda (parameters, body) ->
-            sprintf "(fn (%s) %s)" (String.Join(" ", parameters)) (string body)
+        | Lambda (parameters, body) -> sprintf "(fn (%s) %s)" (String.Join(" ", parameters)) (string body)
         | List xs -> sprintf "(%s)" (String.Join(" ", xs))
         | Nil -> "nil"
 
@@ -114,13 +113,13 @@ type Environment(map: Map<string, SExpr>, ?parent: Environment) =
 
     let exprOrdering expr =
         match expr with
-        | Builtin _ -> 0
-        | Lambda _ -> 1
-        | List _ -> 2
-        | Symbol _ -> 3
-        | Boolean _ -> 4
-        | Number _ -> 5
-        | Nil -> 6
+        | List _ -> 0
+        | Symbol _ -> 1
+        | Boolean _ -> 2
+        | Number _ -> 3
+        | Nil -> 4
+        | Lambda _ -> 5
+        | Builtin _ -> 6
 
     member _.Add(symbol, expr) =
         map <- map.Add(symbol, expr)
@@ -129,7 +128,7 @@ type Environment(map: Map<string, SExpr>, ?parent: Environment) =
         match map.TryFind(s), parent with
         | Some value, _ -> value
         | None, Some parent -> parent.Find(s)
-        | None, _ -> LispError.raise $"\"{s}\" is undefined."
+        | None, _ -> LispError.raise $"Symbol {s} is undefined."
     
     member this.CreateFunctionEnvironment(parameters: _ list, arguments: _ list) =
         Environment((parameters, arguments) ||> List.zip |> Map.ofList, this)
@@ -221,6 +220,7 @@ module SExpr =
     let private (|DefinitionForm|_|) =
         matchSpecialForm Keyword.Definition (function
             | [ Symbol s; expr ] -> s, expr
+            | [ List (head :: tail); expr ] -> toSymbol head, Lambda (tail |> List.map toSymbol, expr)
             | [ x; _ ] -> LispError.wrongType x "symbol"
             | xs -> LispError.wrongNumberOfArguments Keyword.Definition 2 xs)
 
@@ -253,7 +253,6 @@ module SExpr =
             | x when boolean [x] -> trueBranch
             | _ -> falseBranch
             |> eval env
-
         | QuoteForm list -> list
         | Symbol s -> env.Find(s)
         | List (head :: tail) ->
@@ -332,6 +331,8 @@ type Environment with
         try SExpr.eval this expr |> Ok
         with
         | LispError s -> Error s
+        | exn when exn.Message = "Maximum call stack size exceeded" ->
+            Error "Stack overflow (no, not the website)."
         | exn ->
             printfn "%A" exn
             Error "Something went wrong."
@@ -362,12 +363,14 @@ module Environment =
         |> Map.ofList
     
     let private lambdas =
-        [ "(def not (fn (x) (if x false true)))"
-          "(def fold (fn (f acc xs) (if (head xs) (fold f (f acc (head xs)) (tail xs)) acc)))"
-          "(def reverse (fn (xs) (fold (fn (acc x) (cons x acc)) () xs)))"
-          "(def map (fn (g xs) (reverse (fold (fn (acc x) (cons (g x) acc)) () xs))))"
-          "(def filter (fn (g xs) (reverse (fold (fn (acc x) (if (g x) (cons x acc) acc)) () xs))))"
-          "(def range (fn (x y) (if (= x y) () (cons x (range (+ x 1) y)))))" ]
+        [ "(def (not x) (if x false true))"
+          "(def (abs x) (if (>= x 0) x (* x -1)))"
+          "(def (fold f acc xs) (if (head xs) (fold f (f acc (head xs)) (tail xs)) acc))"
+          "(def (reverse xs) (fold (fn (acc x) (cons x acc)) () xs))"
+          "(def (count xs) (fold (fn (acc x) (+ acc 1)) 0 xs))"
+          "(def (map g xs) (reverse (fold (fn (acc x) (cons (g x) acc)) () xs)))"
+          "(def (filter g xs) (reverse (fold (fn (acc x) (if (g x) (cons x acc) acc)) () xs)))"
+          "(def (range x y) (if (= x y) () (cons x (range (+ x 1) y))))" ]
         |> List.choose (fun x ->
             match Parser.parse x with
             | Ok expr -> Some expr

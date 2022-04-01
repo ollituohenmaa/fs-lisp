@@ -5,9 +5,8 @@ open Browser.Types
 open Feliz
 
 let samples =
-    [| "(def pi 3.14)"
-       "(def circle-area (fn (r) (* pi (* r r))))"
-       "(map circle-area (range 1 5))" |]
+    [| "(def (square x) (* x x))"
+       "(map square (range 1 5))" |]
 
 let keywords =
     Set([ Keyword.Definition

@@ -137,21 +137,21 @@ type Environment(map: Map<string, SExpr>, ?parent: Environment) =
     member _.ToArray() =
         map |> Map.toArray |> Array.sortBy (fun (s, e) -> (exprOrdering e, s))
 
+module Keyword =
+
+    [<Literal>]
+    let Definition = "def"
+
+    [<Literal>]
+    let Lambda = "fn"
+
+    [<Literal>]
+    let Conditional = "if"
+
+    [<Literal>]
+    let Quote = "quote"
+
 module SExpr =
-
-    module private Keyword =
-
-        [<Literal>]
-        let Definition = "def"
-
-        [<Literal>]
-        let Lambda = "fn"
-
-        [<Literal>]
-        let Conditional = "if"
-
-        [<Literal>]
-        let Quote = "quote"
 
     let private toSymbol expr =
         match expr with

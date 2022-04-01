@@ -7,10 +7,10 @@ exception LispError of message: string with
     static member raise message = raise (LispError message)
 
     static member wrongType value expectedType =
-        LispError.raise $"\"{value}\" is not a {expectedType}."
+        LispError.raise $"Type mismatch: {value} is not a {expectedType}."
 
     static member wrongNumberOfArguments name expected got =
-        LispError.raise $"\"{name}\" called with a wrong number of arguments (expected {expected}, got {List.length got})."
+        LispError.raise $"Wrong number of arguments for {name}: expected {expected}, got {List.length got}."
 
 [<CustomEquality; CustomComparison>]
 type Number =
@@ -184,6 +184,15 @@ module SExpr =
     let lt = compareNumbers (<)
     let le = compareNumbers (<=)
 
+    let boolean xs =
+        match xs with
+        | [ x ] ->
+            match x with
+            | Nil -> false
+            | Boolean b -> b
+            | _ -> true
+        | _ -> LispError.wrongNumberOfArguments "boolean" 1 xs
+
     let cons xs =
         match xs with
         | [ x; List ys ] -> List (x :: ys)
@@ -239,9 +248,12 @@ module SExpr =
         | LambdaForm lambda -> lambda
         | ConditionalForm (condition, trueBranch, falseBranch) ->
             match eval env condition with
-            | Boolean true -> eval env trueBranch
-            | Boolean false -> eval env falseBranch
-            | x -> LispError.wrongType x "boolean"
+            | Boolean false -> falseBranch
+            | Boolean true -> trueBranch
+            | x when boolean [x] -> trueBranch
+            | _ -> falseBranch
+            |> eval env
+
         | QuoteForm list -> list
         | Symbol s -> env.Find(s)
         | List (head :: tail) ->
@@ -307,7 +319,10 @@ module Parser =
             match input |> tokenize |> readSExpr with
             | expr, [] -> Ok expr
             | _ -> Error "The input is not a single expression."
-        with exn ->
+        with
+        | LispError message ->
+            Error message
+        | exn ->
             printfn "%A" exn
             Error "Something went wrong."
 
@@ -335,6 +350,9 @@ module Environment =
           "<=", SExpr.le
           "=", List.pairwise >> List.forall (fun (x, y) -> x = y) >> Boolean
           "<>", List.pairwise >> List.exists (fun (x, y) -> x <> y) >> Boolean
+          "and", List.forall (List.singleton >> SExpr.boolean) >> Boolean
+          "or", List.exists (List.singleton >> SExpr.boolean) >> Boolean
+          "boolean", SExpr.boolean >> Boolean
           "do", List.last
           "list", fun xs -> List (xs)
           "cons", SExpr.cons
@@ -345,9 +363,7 @@ module Environment =
     
     let private lambdas =
         [ "(def not (fn (x) (if x false true)))"
-          "(def != (fn (x y) (not (= x y))))"
-          "(def nil? (fn (x) (= x nil)))"
-          "(def fold (fn (f acc xs) (if (nil? (head xs)) acc (fold f (f acc (head xs)) (tail xs)))))"
+          "(def fold (fn (f acc xs) (if (head xs) (fold f (f acc (head xs)) (tail xs)) acc)))"
           "(def reverse (fn (xs) (fold (fn (acc x) (cons x acc)) () xs)))"
           "(def map (fn (g xs) (reverse (fold (fn (acc x) (cons (g x) acc)) () xs))))"
           "(def filter (fn (g xs) (reverse (fold (fn (acc x) (if (g x) (cons x acc) acc)) () xs))))"

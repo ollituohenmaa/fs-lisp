@@ -5,7 +5,7 @@ open Browser.Types
 open Feliz
 
 let samples =
-    [| "(def pi 3.14159)"
+    [| "(def pi 3.14)"
        "(def circle-area (fn (r) (* pi (* r r))))"
        "(map circle-area (range 1 5))" |]
 

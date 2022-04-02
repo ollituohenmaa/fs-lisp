@@ -6,7 +6,7 @@ open Feliz
 
 let samples =
     [| "(def (square x) (* x x))"
-       "(map square (range 1 5))" |]
+       "(map square (range 1 10))" |]
 
 let keywords =
     Set([ Keyword.Definition
@@ -21,7 +21,7 @@ let rec Expr (depth: int) (expr: SExpr) =
         match expr with
         | Builtin _ -> "builtin"
         | Nil -> "nil"
-        | List _ -> $"list-{depth % 2}"
+        | List _ -> $"list-{depth % 3}"
         | Lambda _ -> ""
         | Number _ -> "number"
         | Boolean _ -> "boolean"

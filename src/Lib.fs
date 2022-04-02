@@ -82,7 +82,7 @@ type SExpr =
         | Symbol s -> s
         | Number x -> string x
         | Boolean b -> if b then "true" else "false"
-        | Builtin f -> "<builtin>"
+        | Builtin f -> "built-in"
         | Lambda (parameters, body) -> sprintf "(fn (%s) %s)" (String.Join(" ", parameters)) (string body)
         | List xs -> sprintf "(%s)" (String.Join(" ", xs))
         | Nil -> "nil"
@@ -183,14 +183,11 @@ module SExpr =
     let lt = compareNumbers (<)
     let le = compareNumbers (<=)
 
-    let boolean xs =
-        match xs with
-        | [ x ] ->
-            match x with
-            | Nil -> false
-            | Boolean b -> b
-            | _ -> true
-        | _ -> LispError.wrongNumberOfArguments "boolean" 1 xs
+    let boolean x =
+        match x with
+        | Nil -> false
+        | Boolean b -> b
+        | _ -> true
 
     let cons xs =
         match xs with
@@ -247,11 +244,10 @@ module SExpr =
             Nil
         | LambdaForm lambda -> lambda
         | ConditionalForm (condition, trueBranch, falseBranch) ->
-            match eval env condition with
-            | Boolean false -> falseBranch
-            | Boolean true -> trueBranch
-            | x when boolean [x] -> trueBranch
-            | _ -> falseBranch
+            if condition |> eval env |> boolean then
+                trueBranch
+            else
+                falseBranch
             |> eval env
         | QuoteForm list -> list
         | Symbol s -> env.Find(s)
@@ -351,11 +347,9 @@ module Environment =
           "<=", SExpr.le
           "=", List.pairwise >> List.forall (fun (x, y) -> x = y) >> Boolean
           "<>", List.pairwise >> List.exists (fun (x, y) -> x <> y) >> Boolean
-          "and", List.forall (List.singleton >> SExpr.boolean) >> Boolean
-          "or", List.exists (List.singleton >> SExpr.boolean) >> Boolean
-          "boolean", SExpr.boolean >> Boolean
-          "do", List.last
-          "list", fun xs -> List (xs)
+          "and", List.forall SExpr.boolean >> Boolean
+          "or", List.exists SExpr.boolean >> Boolean
+          "list", List
           "cons", SExpr.cons
           "head", SExpr.head
           "tail", SExpr.tail ]

@@ -48,9 +48,8 @@ table {
 }
 
 body {
-    background-color: hsl(210, 20%, 15%);
-    color: hsl(210, 20%, 85%);
-    font-size: 16px;
+    background-color: hsl(210, 20%, 20%);
+    color: var(--text);
     font-family: 'Jetbrains Mono', monospace;
     line-height: 150%;
     height: 100vh;
@@ -70,7 +69,7 @@ body {
 }
 
 .env {
-    background-color: hsl(210, 20%, 20%);
+    background-color: hsl(210, 20%, 25%);
     height: calc(100vh - 2rem);
     width: 100%;
     box-sizing: border-box;
@@ -79,7 +78,7 @@ body {
     padding: 1rem;
     overflow-y: scroll;
     overflow-x: hidden;
-    box-shadow: 2px 4px 8px 0 rgba(0, 0, 0, 0.2);
+    box-shadow: 2px 4px 8px 0 rgba(0, 0, 0, 0.3);
     overflow: auto;
     white-space: nowrap;
     width: 25vw;
@@ -96,7 +95,7 @@ body {
 }
 
 .repl {
-    background-color: hsl(210, 20%, 20%);
+    background-color: hsl(210, 20%, 25%);
     display: grid;
     grid-template-rows: 1fr max-content;
     height: calc(100vh - 2rem);
@@ -104,7 +103,7 @@ body {
     box-sizing: border-box;
     font-size: 1rem;
     border-radius: 4px;
-    box-shadow: 2px 4px 8px 0 rgba(0, 0, 0, 0.2);
+    box-shadow: 2px 4px 8px 0 rgba(0, 0, 0, 0.3);
 }
 
 .history {
@@ -115,8 +114,8 @@ body {
 input[type="text"] {
     border: 0;
     outline: 0;
-    background-color: hsl(210, 20%, 25%);
-    border-top: 1px solid hsl(210, 20%, 15%);
+    background-color: hsl(210, 20%, 30%);
+    border-top: 1px solid hsl(210, 20%, 35%);
     color: hsl(210, 20%, 90%);
     padding: 1rem;
     border-radius: 0 0 4px 4px;
@@ -139,12 +138,12 @@ dt {
     cursor: pointer;
 }
 
-dt:hover span, td:first-child div:hover {
-    color: white;
+dt:hover>span, td:first-child div:hover {
+    filter: brightness(125%);
 }
 
 .keyword {
-    color: hsl(340, 100%, 90%);
+    color: hsl(170, 100%, 85%);
 }
 
 .symbol {
@@ -152,23 +151,27 @@ dt:hover span, td:first-child div:hover {
 }
 
 .error {
-    color: hsl(340, 90%, 70%);
+    color: hsl(350, 90%, 70%);
 }
 
 .list-0 {
-    color: hsl(340, 50%, 70%);
+    color: hsl(170, 70%, 55%);
 }
 
 .list-1 {
-    color: hsl(190, 70%, 50%);
+    color: hsl(200, 70%, 55%);
+}
+
+.list-2 {
+    color: hsl(210, 20%, 70%);
 }
 
 .nil, .builtin {
-    color: hsl(210, 20%, 60%);
+    color: hsl(210, 20%, 70%);
 }
 
 .boolean, .number {
-    color: hsl(210, 20%, 85%);
+    color: var(--text);
 }
 
 ::-webkit-scrollbar {
@@ -194,5 +197,8 @@ dt:hover span, td:first-child div:hover {
 }
 
 :root {
-    --symbol: hsl(190, 90%, 80%);
+    font-size: 16px;
+
+    --symbol: hsl(200, 90%, 80%);
+    --text: hsl(210, 20%, 90%);
 }

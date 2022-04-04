@@ -14,6 +14,14 @@ let keywords =
           Keyword.Conditional
           Keyword.Quote ])
 
+type History =
+    { Position: int
+      Items: (string * SExpr option * Result<SExpr, string>)[] }
+
+    member this.Add(item) =
+        { Position = this.Items.Length + 1
+          Items = [| yield! this.Items; yield item |] }
+
 [<ReactComponent>]
 let rec Expr (depth: int) (expr: SExpr) =
 
@@ -21,7 +29,7 @@ let rec Expr (depth: int) (expr: SExpr) =
         match expr with
         | Builtin _ -> "builtin"
         | Nil -> "nil"
-        | List _ -> $"list-{depth % 3}"
+        | List _ -> $"list-{depth % 2}"
         | Lambda _ -> ""
         | Number _ -> "number"
         | Boolean _ -> "boolean"
@@ -57,21 +65,22 @@ let rec Expr (depth: int) (expr: SExpr) =
 [<ReactComponent>]
 let Repl(env: Environment) =
     let (input, setInput) = React.useState ""
-    let (history, updateHistory) = React.useStateWithUpdater [||]
+    let (history, updateHistory) = React.useStateWithUpdater ({ Position = 0; Items = [||] })
     let historyRef = React.useRef None
     let inputRef = React.useRef None
 
     let update input =
+        setInput ""
         match Parser.parse input with
         | Ok expr ->
             let result = env.Eval(expr)
-            updateHistory (fun xs -> [| yield! xs; (input, Some expr, result) |])
+            updateHistory (fun history -> history.Add(input, Some expr, result))
         | Error message ->
-            updateHistory (fun xs -> [| yield! xs; (input, None, Error message) |])
+            updateHistory (fun history -> history.Add(input, None, Error message))
 
     React.useEffectOnce (fun () -> samples |> Array.iter update)
 
-    React.useEffect(fun () ->
+    React.useEffect (fun () ->
         historyRef.current |> Option.iter (fun current ->
             let element = unbox<HTMLDivElement> current
             element.scrollTop <- element.scrollHeight)
@@ -111,14 +120,13 @@ let Repl(env: Environment) =
             prop.spellcheck false
             prop.onSubmit (fun e ->
                 e.preventDefault()
-                update input
-                setInput "")
+                update input)
             prop.children [
                 Html.div [
                     prop.ref historyRef
                     prop.className "history"
                     prop.children [
-                        for (input, expr, result) in history do
+                        for (input, expr, result) in history.Items do
                             Html.dl [
                                 Html.dt [
                                     prop.onClick (fun _ -> setInput input)
@@ -146,6 +154,22 @@ let Repl(env: Environment) =
                     prop.type' "text"
                     prop.value input
                     prop.onChange setInput
+                    prop.onKeyDown (fun e ->
+                        let direction =
+                            match e.key with
+                            | "ArrowUp" -> -1
+                            | "ArrowDown" -> 1
+                            | _ -> 0
+                        if direction <> 0 then
+                            e.preventDefault() 
+                            let items = history.Items
+                            let position = max 0 (min (history.Position + direction) items.Length)
+                            if position < items.Length then
+                                let input, _, _ = items.[position]
+                                setInput input
+                            else
+                                setInput ""
+                            updateHistory (fun history -> { history with Position = position }))
                 ]
             ]
         ]

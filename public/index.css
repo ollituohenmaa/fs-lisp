@@ -138,12 +138,12 @@ dt {
     cursor: pointer;
 }
 
-dt:hover>span, td:first-child div:hover {
-    filter: brightness(125%);
+dt:hover span, td:first-child div:hover {
+    color:  white;
 }
 
 .keyword {
-    color: hsl(170, 100%, 85%);
+    color: hsl(170, 100%, 70%);
 }
 
 .symbol {
@@ -155,15 +155,11 @@ dt:hover>span, td:first-child div:hover {
 }
 
 .list-0 {
-    color: hsl(170, 70%, 55%);
+    color: hsl(170, 80%, 50%);
 }
 
 .list-1 {
-    color: hsl(200, 70%, 55%);
-}
-
-.list-2 {
-    color: hsl(210, 20%, 70%);
+    color: hsl(200, 80%, 60%);
 }
 
 .nil, .builtin {
@@ -199,6 +195,6 @@ dt:hover>span, td:first-child div:hover {
 :root {
     font-size: 16px;
 
-    --symbol: hsl(200, 90%, 80%);
+    --symbol: hsl(200, 100%, 80%);
     --text: hsl(210, 20%, 90%);
 }

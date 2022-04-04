@@ -289,7 +289,7 @@ module Parser =
 
     let rec private readList acc xs =
         match xs with
-        | head :: tail when head = ")" ->
+        | ")" :: tail ->
             acc |> List.rev |> List, tail
         | tokens ->
             let expr, tail = readSExpr tokens
@@ -297,17 +297,14 @@ module Parser =
 
     and private readSExpr tokens =
         match tokens with
-        | [] ->
-            LispError.raise "Unexpected end of input."
-        | head :: tail ->
-            match head with
-            | "(" -> readList [] tail
-            | ")" -> LispError.raise "Unexpected \")\"."
-            | Int x -> Number (Int x), tail
-            | Float x -> Number (Float x), tail
-            | Boolean b -> Boolean b, tail
-            | "nil" -> Nil, tail
-            | s -> Symbol s, tail
+        | [] -> LispError.raise "Unexpected end of input."
+        | ")" :: _ -> LispError.raise "Unexpected \")\"."
+        | "(" :: tail -> readList [] tail
+        | Int x :: tail -> Number (Int x), tail
+        | Float x :: tail -> Number (Float x), tail
+        | Boolean b :: tail -> Boolean b, tail
+        | "nil" :: tail -> Nil, tail
+        | s :: tail -> Symbol s, tail
 
     let parse input =
         try

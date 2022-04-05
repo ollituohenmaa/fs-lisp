@@ -1,1 +1,0 @@
-A really simple Lisp interpreter, mostly based on Peter Norvig's article "[(How to Write a (Lisp) Interpreter (in Python))](http://norvig.com/lispy.html)".

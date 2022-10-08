@@ -63,10 +63,76 @@ let rec Expr (depth: int) (expr: SExpr) =
         ]
 
 [<ReactComponent>]
-let Repl(env: Environment) =
+let EnvTable (env: Environment) onSymbolClick =
+    Html.div [
+        prop.className "env-table"
+        prop.children [
+            Html.table [
+                prop.children [
+                    Html.tbody [
+                        for (symbol, expr) in env.ToArray() do
+                            Html.tr [
+                                Html.td [
+                                    prop.title symbol
+                                    prop.onClick (fun _ -> onSymbolClick symbol)
+                                    prop.children [
+                                        Html.div [
+                                            prop.text (string symbol)
+                                        ]
+                                    ]
+                                ]
+                                Html.td [
+                                    Expr 0 expr
+                                ]
+                            ]
+                    ]
+                ]
+            ]
+        ]
+    ]
+
+[<ReactComponent>]
+let HistoryBrowser history onItemClick =
+
+    let ref = React.useRef None
+
+    React.useEffect (fun () ->
+        ref.current |> Option.iter (fun current ->
+            let element = unbox<HTMLDivElement> current
+            element.scrollTop <- element.scrollHeight))
+
+    Html.div [
+        prop.ref ref
+        prop.className "history-browser"
+        prop.children [
+            for (input, expr, result) in history.Items do
+                Html.dl [
+                    Html.dt [
+                        prop.onClick (fun _ -> onItemClick input)
+                        prop.children [
+                            match expr with
+                            | Some expr -> Expr 0 expr
+                            | None -> Html.span input
+                        ]
+                    ]
+                    match result with
+                    | Error message ->
+                        Html.dd [
+                            Html.span [
+                                prop.className "error"
+                                prop.text (string message)
+                            ]
+                        ]
+                    | Ok expr ->
+                        Html.dd [ Expr 0 expr ]
+                ]
+        ]
+    ]
+
+[<ReactComponent>]
+let Repl (env: Environment) =
     let (input, setInput) = React.useState ""
     let (history, updateHistory) = React.useStateWithUpdater ({ Position = 0; Items = [||] })
-    let historyRef = React.useRef None
     let inputRef = React.useRef None
 
     let update input =
@@ -81,40 +147,29 @@ let Repl(env: Environment) =
     React.useEffectOnce (fun () -> samples |> Array.iter update)
 
     React.useEffect (fun () ->
-        historyRef.current |> Option.iter (fun current ->
-            let element = unbox<HTMLDivElement> current
-            element.scrollTop <- element.scrollHeight)
         inputRef.current |> Option.iter (fun current ->
             let element = unbox<HTMLInputElement> current
             element.focus()))
 
+    let onInputKeyDown (e: KeyboardEvent) =
+        let direction =
+            match e.key with
+            | "ArrowUp" -> -1
+            | "ArrowDown" -> 1
+            | _ -> 0
+        if direction <> 0 then
+            e.preventDefault() 
+            let items = history.Items
+            let position = max 0 (min (history.Position + direction) items.Length)
+            if position < items.Length then
+                let input, _, _ = items.[position]
+                setInput input
+            else
+                setInput ""
+            updateHistory (fun history -> { history with Position = position })
+
     React.fragment [
-        Html.div [
-            prop.className "env"
-            prop.children [
-                Html.table [
-                    prop.children [
-                        Html.tbody [
-                            for (symbol, expr) in env.ToArray() do
-                                Html.tr [
-                                    Html.td [
-                                        prop.title symbol
-                                        prop.onClick (fun _ -> setInput symbol)
-                                        prop.children [
-                                            Html.div [
-                                                prop.text (string symbol)
-                                            ]
-                                        ]
-                                    ]
-                                    Html.td [
-                                        Expr 0 expr
-                                    ]
-                                ]
-                        ]
-                    ]
-                ]
-            ]
-        ]
+        EnvTable env setInput
         Html.form [
             prop.className "repl"
             prop.spellcheck false
@@ -122,54 +177,13 @@ let Repl(env: Environment) =
                 e.preventDefault()
                 update input)
             prop.children [
-                Html.div [
-                    prop.ref historyRef
-                    prop.className "history"
-                    prop.children [
-                        for (input, expr, result) in history.Items do
-                            Html.dl [
-                                Html.dt [
-                                    prop.onClick (fun _ -> setInput input)
-                                    prop.children [
-                                        match expr with
-                                        | Some expr -> Expr 0 expr
-                                        | None -> Html.span input
-                                    ]
-                                ]
-                                match result with
-                                | Error message ->
-                                    Html.dd [
-                                        Html.span [
-                                            prop.className "error"
-                                            prop.text (string message)
-                                        ]
-                                    ]
-                                | Ok expr ->
-                                    Html.dd [ Expr 0 expr ]
-                            ]
-                    ]
-                ]
+                HistoryBrowser history setInput
                 Html.input [
                     prop.ref inputRef
                     prop.type' "text"
                     prop.value input
                     prop.onChange setInput
-                    prop.onKeyDown (fun e ->
-                        let direction =
-                            match e.key with
-                            | "ArrowUp" -> -1
-                            | "ArrowDown" -> 1
-                            | _ -> 0
-                        if direction <> 0 then
-                            e.preventDefault() 
-                            let items = history.Items
-                            let position = max 0 (min (history.Position + direction) items.Length)
-                            if position < items.Length then
-                                let input, _, _ = items.[position]
-                                setInput input
-                            else
-                                setInput ""
-                            updateHistory (fun history -> { history with Position = position }))
+                    prop.onKeyDown onInputKeyDown
                 ]
             ]
         ]

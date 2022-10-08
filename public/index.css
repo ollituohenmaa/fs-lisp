@@ -68,7 +68,7 @@ body {
     box-sizing: border-box;
 }
 
-.env {
+.env-table {
     background-color: hsl(210, 20%, 25%);
     height: calc(100vh - 2rem);
     width: 100%;
@@ -84,7 +84,7 @@ body {
     width: 25vw;
 }
 
-.env td:first-child div {
+.env-table td:first-child div {
     padding-right: 1rem;
     cursor: pointer;
     width: 12ch;
@@ -106,7 +106,7 @@ body {
     box-shadow: 2px 4px 8px 0 rgba(0, 0, 0, 0.3);
 }
 
-.history {
+.history-browser {
     overflow-y: scroll;
     height: 100%
 }
@@ -155,11 +155,11 @@ dt:hover span, td:first-child div:hover {
 }
 
 .list-0 {
-    color: hsl(170, 80%, 50%);
+    color: hsl(170, 90%, 45%);
 }
 
 .list-1 {
-    color: hsl(200, 80%, 60%);
+    color: hsl(200, 80%, 55%);
 }
 
 .nil, .builtin {

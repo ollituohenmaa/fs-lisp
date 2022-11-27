@@ -356,12 +356,12 @@ module Environment =
     let private lambdas =
         [ "(def (not x) (if x false true))"
           "(def (abs x) (if (>= x 0) x (* x -1)))"
-          "(def (fold f acc xs) (if (head xs) (fold f (f acc (head xs)) (tail xs)) acc))"
+          "(def (fold f acc xs) (if (= xs (list)) acc (fold f (f acc (head xs)) (tail xs))))"
           "(def (reverse xs) (fold (fn (acc x) (cons x acc)) () xs))"
           "(def (count xs) (fold (fn (acc x) (+ acc 1)) 0 xs))"
           "(def (map g xs) (reverse (fold (fn (acc x) (cons (g x) acc)) () xs)))"
           "(def (filter g xs) (reverse (fold (fn (acc x) (if (g x) (cons x acc) acc)) () xs)))"
-          "(def (range x y) (if (= x y) () (cons x (range (+ x 1) y))))" ]
+          "(def (range x y) (if (>= x y) () (cons x (range (+ x 1) y))))" ]
         |> List.choose (fun x ->
             match Parser.parse x with
             | Ok expr -> Some expr

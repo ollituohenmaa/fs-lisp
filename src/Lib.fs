@@ -34,7 +34,7 @@ type Number =
         match this with
         | Int x -> string x
         | Float x -> string x
-    
+
     interface IEquatable<Number> with
         member this.Equals(other) =
             match this, other with
@@ -47,10 +47,9 @@ type Number =
         match other with
         | :? Number as other -> (this :> IEquatable<_>).Equals(other)
         | _ -> false
-    
-    override _.GetHashCode() =
-        raise (NotImplementedException())
-    
+
+    override _.GetHashCode() = raise (NotImplementedException())
+
     interface IComparable<Number> with
         member this.CompareTo(other) =
             let isSmallerThanOther =
@@ -59,8 +58,11 @@ type Number =
                 | Int x, Float y -> (float x) < y
                 | Float x, Int y -> x < (float y)
                 | Float x, Float y -> x < y
-            if isSmallerThanOther then -1 elif this = other then 0 else 1
-    
+
+            if isSmallerThanOther then -1
+            elif this = other then 0
+            else 1
+
     interface IComparable with
         member this.CompareTo(other) =
             match other with
@@ -83,29 +85,28 @@ type SExpr =
         | Number x -> string x
         | Boolean b -> if b then "true" else "false"
         | Builtin f -> "built-in"
-        | Lambda (parameters, body) -> sprintf "(fn (%s) %s)" (String.Join(" ", parameters)) (string body)
+        | Lambda(parameters, body) -> sprintf "(fn (%s) %s)" (String.Join(" ", parameters)) (string body)
         | List xs -> sprintf "(%s)" (String.Join(" ", xs))
         | Nil -> "nil"
 
     interface IEquatable<SExpr> with
-            member this.Equals(other) =
-                match this, other with
-                | Builtin _, Builtin _ -> false
-                | Symbol a, Symbol b -> a = b
-                | Number a, Number b -> a = b
-                | Boolean a, Boolean b -> a = b
-                | Lambda (a1, a2), Lambda (b1, b2) -> a1 = b1 && a2 = b2
-                | List a, List b -> a = b
-                | Nil, Nil -> true
-                | _ -> false
+        member this.Equals(other) =
+            match this, other with
+            | Builtin _, Builtin _ -> false
+            | Symbol a, Symbol b -> a = b
+            | Number a, Number b -> a = b
+            | Boolean a, Boolean b -> a = b
+            | Lambda(a1, a2), Lambda(b1, b2) -> a1 = b1 && a2 = b2
+            | List a, List b -> a = b
+            | Nil, Nil -> true
+            | _ -> false
 
     override this.Equals(other) =
         match other with
         | :? SExpr as other -> (this :> IEquatable<_>).Equals(other)
         | _ -> false
-    
-    override _.GetHashCode() =
-        raise (NotImplementedException())
+
+    override _.GetHashCode() = raise (NotImplementedException())
 
 type Environment(map: Map<string, SExpr>, ?parent: Environment) =
 
@@ -121,18 +122,17 @@ type Environment(map: Map<string, SExpr>, ?parent: Environment) =
         | Lambda _ -> 5
         | Builtin _ -> 6
 
-    member _.Add(symbol, expr) =
-        map <- map.Add(symbol, expr)
+    member _.Add(symbol, expr) = map <- map.Add(symbol, expr)
 
     member _.Find(s) =
         match map.TryFind(s), parent with
         | Some value, _ -> value
         | None, Some parent -> parent.Find(s)
         | None, _ -> LispError.raise $"Symbol {s} is undefined."
-    
+
     member this.CreateFunctionEnvironment(parameters: _ list, arguments: _ list) =
         Environment((parameters, arguments) ||> List.zip |> Map.ofList, this)
-    
+
     member _.ToArray() =
         map |> Map.toArray |> Array.sortBy (fun (s, e) -> (exprOrdering e, s))
 
@@ -163,18 +163,20 @@ module SExpr =
         | Number _, x -> LispError.wrongType x "number"
         | s, _ -> LispError.wrongType s "number"
 
-    let private foldNumbers operator x0 = List.fold (liftOperator (fun s x -> Number (operator s x))) x0
+    let private foldNumbers operator x0 =
+        List.fold (liftOperator (fun s x -> Number(operator s x))) x0
 
-    let private reduceNumbers operator = List.reduce (liftOperator (fun s x -> Number (operator s x)))
-    
+    let private reduceNumbers operator =
+        List.reduce (liftOperator (fun s x -> Number(operator s x)))
+
     let private compareNumbers predicate xs =
         match xs with
         | head :: tail -> tail |> List.forall (liftOperator predicate head) |> Boolean
         | [] -> Boolean false
 
-    let add = foldNumbers (+) (Number (Int 0))
+    let add = foldNumbers (+) (Number(Int 0))
     let sub = reduceNumbers (-)
-    let mul = foldNumbers (*) (Number (Int 1))
+    let mul = foldNumbers (*) (Number(Int 1))
     let div = reduceNumbers (/)
     let rem = reduceNumbers (%)
 
@@ -191,39 +193,39 @@ module SExpr =
 
     let cons xs =
         match xs with
-        | [ x; List ys ] -> List (x :: ys)
+        | [ x; List ys ] -> List(x :: ys)
         | [ _; expr ] -> LispError.wrongType expr "list"
         | _ -> LispError.wrongNumberOfArguments "cons" 2 xs
 
     let head xs =
         match xs with
-        | [ List (head :: _) ] -> head
+        | [ List(head :: _) ] -> head
         | [ List [] ] -> Nil
         | [ expr ] -> LispError.wrongType expr "list"
         | _ -> LispError.wrongNumberOfArguments "head" 1 xs
-    
+
     let tail xs =
         match xs with
-        | [ List (_ :: tail) ] -> List tail
+        | [ List(_ :: tail) ] -> List tail
         | [ List [] ] -> List []
         | [ expr ] -> LispError.wrongType expr "list"
         | _ -> LispError.wrongNumberOfArguments "tail" 1 xs
-    
+
     let private matchSpecialForm symbol fn expr =
         match expr with
-        | List (Symbol s :: tail) when s = symbol -> Some (fn tail)
+        | List(Symbol s :: tail) when s = symbol -> Some(fn tail)
         | _ -> None
 
     let private (|DefinitionForm|_|) =
         matchSpecialForm Keyword.Definition (function
             | [ Symbol s; expr ] -> s, expr
-            | [ List (head :: tail); expr ] -> toSymbol head, Lambda (tail |> List.map toSymbol, expr)
+            | [ List(head :: tail); expr ] -> toSymbol head, Lambda(tail |> List.map toSymbol, expr)
             | [ x; _ ] -> LispError.wrongType x "symbol"
             | xs -> LispError.wrongNumberOfArguments Keyword.Definition 2 xs)
 
     let private (|LambdaForm|_|) =
         matchSpecialForm Keyword.Lambda (function
-            | [ List parameters; body ] -> Lambda ((parameters |> List.map toSymbol), body)
+            | [ List parameters; body ] -> Lambda((parameters |> List.map toSymbol), body)
             | [ x; _ ] -> LispError.wrongType x "list"
             | xs -> LispError.wrongNumberOfArguments Keyword.Lambda 2 xs)
 
@@ -231,7 +233,7 @@ module SExpr =
         matchSpecialForm Keyword.Conditional (function
             | [ condition; trueBranch; falseBranch ] -> condition, trueBranch, falseBranch
             | xs -> LispError.wrongNumberOfArguments Keyword.Conditional 3 xs)
-    
+
     let private (|QuoteForm|_|) =
         matchSpecialForm Keyword.Quote (function
             | [ x ] -> x
@@ -239,11 +241,11 @@ module SExpr =
 
     let rec eval (env: Environment) expr =
         match expr with
-        | DefinitionForm (s, expr) ->
+        | DefinitionForm(s, expr) ->
             env.Add(s, eval env expr)
             Nil
         | LambdaForm lambda -> lambda
-        | ConditionalForm (condition, trueBranch, falseBranch) ->
+        | ConditionalForm(condition, trueBranch, falseBranch) ->
             if condition |> eval env |> boolean then
                 trueBranch
             else
@@ -251,22 +253,23 @@ module SExpr =
             |> eval env
         | QuoteForm list -> list
         | Symbol s -> env.Find(s)
-        | List (head :: tail) ->
+        | List(head :: tail) ->
             let arguments = tail |> List.map (eval env)
+
             match eval env head with
             | Builtin f -> f arguments
-            | Lambda (parameters, body) ->
+            | Lambda(parameters, body) ->
                 if parameters.Length = arguments.Length then
                     eval (env.CreateFunctionEnvironment(parameters, arguments)) body
-                else LispError.wrongNumberOfArguments (string head) parameters.Length arguments
+                else
+                    LispError.wrongNumberOfArguments (string head) parameters.Length arguments
             | expr -> LispError.wrongType expr "function"
         | _ -> expr
 
 module Parser =
 
-    let private toOption<'a> (success, x: 'a) =
-        if success then Some x else None
-    
+    let private toOption<'a> (success, x: 'a) = if success then Some x else None
+
     let private (|Int|_|) (s: string) = s |> Int32.TryParse |> toOption
 
     let private (|Float|_|) (s: string) = s |> Double.TryParse |> toOption
@@ -289,8 +292,7 @@ module Parser =
 
     let rec private readList acc xs =
         match xs with
-        | ")" :: tail ->
-            acc |> List.rev |> List, tail
+        | ")" :: tail -> acc |> List.rev |> List, tail
         | tokens ->
             let expr, tail = readSExpr tokens
             readList (expr :: acc) tail
@@ -300,8 +302,8 @@ module Parser =
         | [] -> LispError.raise "Unexpected end of input."
         | ")" :: _ -> LispError.raise "Unexpected \")\"."
         | "(" :: tail -> readList [] tail
-        | Int x :: tail -> Number (Int x), tail
-        | Float x :: tail -> Number (Float x), tail
+        | Int x :: tail -> Number(Int x), tail
+        | Float x :: tail -> Number(Float x), tail
         | Boolean b :: tail -> Boolean b, tail
         | "nil" :: tail -> Nil, tail
         | s :: tail -> Symbol s, tail
@@ -312,8 +314,7 @@ module Parser =
             | expr, [] -> Ok expr
             | _ -> Error "The input is not a single expression."
         with
-        | LispError message ->
-            Error message
+        | LispError message -> Error message
         | exn ->
             printfn "%A" exn
             Error "Something went wrong."
@@ -321,11 +322,11 @@ module Parser =
 type Environment with
 
     member this.Eval(expr) =
-        try SExpr.eval this expr |> Ok
+        try
+            SExpr.eval this expr |> Ok
         with
         | LispError s -> Error s
-        | exn when exn.Message = "Maximum call stack size exceeded" ->
-            Error "Stack overflow (no, not the website)."
+        | exn when exn.Message = "Maximum call stack size exceeded" -> Error "Stack overflow (no, not the website)."
         | exn ->
             printfn "%A" exn
             Error "Something went wrong."
@@ -352,7 +353,7 @@ module Environment =
           "tail", SExpr.tail ]
         |> List.map (fun (s, v) -> (s, Builtin v))
         |> Map.ofList
-    
+
     let private lambdas =
         [ "(def (not x) (if x false true))"
           "(def (abs x) (if (>= x 0) x (* x -1)))"
@@ -367,7 +368,7 @@ module Environment =
             | Ok expr -> Some expr
             | _ -> None)
 
-    let createDefaultEnvironment() =
+    let createDefaultEnvironment () =
         let env = Environment(builtins)
         lambdas |> List.iter (env.Eval >> ignore)
         env

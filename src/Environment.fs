@@ -11,7 +11,7 @@ type SemanticInfo =
     | Variable
     | Unknown
 
-type Environment(symbols: Map<string, SExpr>, ?parent: IEnvironment) =
+type Environment(symbols: Map<string, SExpr>, ?parent: Environment) =
 
     let mutable symbols = symbols
 
@@ -32,14 +32,19 @@ type Environment(symbols: Map<string, SExpr>, ?parent: IEnvironment) =
         member _.Find(s) =
             match symbols.TryFind(s), parent with
             | Some value, _ -> value
-            | None, Some parent -> parent.Find(s)
+            | None, Some parent -> (parent :> IEnvironment).Find(s)
             | None, _ -> LispError.raise $"Symbol {s} is undefined."
 
         member this.CreateFunctionEnvironment(parameters: _ list, arguments: _ list) =
             Environment((parameters, arguments) ||> List.zip |> Map.ofList, this) :> IEnvironment
 
     member _.ToArray() =
-        symbols |> Map.toArray |> Array.sortBy (fun (s, e) -> (exprOrdering e, s))
+        [| yield! symbols |> Map.toArray
+           match parent with
+           | Some parent -> yield! parent.ToArray()
+           | None -> () |]
+        |> Array.distinctBy fst
+        |> Array.sortBy (fun (s, e) -> (exprOrdering e, s))
 
     member this.GetSemanticInfo(expr) =
         match expr with
@@ -97,8 +102,8 @@ module Environment =
           "(def (fold f acc xs) (if (= xs (list)) acc (fold f (f acc (head xs)) (tail xs))))"
           "(def (reverse xs) (fold (fn (acc x) (cons x acc)) () xs))"
           "(def (count xs) (fold (fn (acc x) (+ acc 1)) 0 xs))"
-          "(def (map g xs) (reverse (fold (fn (acc x) (cons (g x) acc)) () xs)))"
-          "(def (filter g xs) (reverse (fold (fn (acc x) (if (g x) (cons x acc) acc)) () xs)))"
+          "(def (map f xs) (reverse (fold (fn (acc x) (cons (f x) acc)) () xs)))"
+          "(def (filter f xs) (reverse (fold (fn (acc x) (if (f x) (cons x acc) acc)) () xs)))"
           "(def (range start stop) (if (>= start stop) () (cons start (range (+ start 1) stop))))" ]
         |> List.choose (fun x ->
             match Parser.parse x with

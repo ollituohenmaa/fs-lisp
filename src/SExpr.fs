@@ -36,7 +36,7 @@ type SExpr =
     | Number of Number
     | Boolean of bool
     | Builtin of (SExpr list -> SExpr)
-    | Lambda of parameters: string list * body: SExpr
+    | Lambda of env: IEnvironment * parameters: string list * body: SExpr
     | List of SExpr list
     | Nil
 
@@ -46,7 +46,7 @@ type SExpr =
         | Number x -> string x
         | Boolean b -> if b then "true" else "false"
         | Builtin _ -> "built-in"
-        | Lambda(parameters, body) -> sprintf "(fn (%s) %s)" (String.Join(" ", parameters)) (string body)
+        | Lambda(_, parameters, body) -> sprintf "(fn (%s) %s)" (String.Join(" ", parameters)) (string body)
         | List xs -> sprintf "(%s)" (String.Join(" ", xs))
         | Nil -> "nil"
 
@@ -54,11 +54,9 @@ type SExpr =
 
         member this.Equals(other) =
             match this, other with
-            | Builtin _, Builtin _ -> false
             | Symbol a, Symbol b -> a = b
             | Number a, Number b -> a = b
             | Boolean a, Boolean b -> a = b
-            | Lambda(a1, a2), Lambda(b1, b2) -> a1 = b1 && a2 = b2
             | List a, List b -> a = b
             | Nil, Nil -> true
             | _ -> false
@@ -70,7 +68,7 @@ type SExpr =
 
     override _.GetHashCode() = raise (NotImplementedException())
 
-type IEnvironment =
+and IEnvironment =
     abstract Add: string * SExpr -> unit
     abstract Find: string -> SExpr
     abstract CreateFunctionEnvironment: list<string> * list<SExpr> -> IEnvironment
@@ -141,16 +139,16 @@ module SExpr =
         | List(Symbol s :: tail) when s = symbol -> Some(fn tail)
         | _ -> None
 
-    let private (|DefinitionForm|_|) =
+    let private (|DefinitionForm|_|) env =
         matchSpecialForm Keyword.Definition (function
             | [ Symbol s; expr ] -> s, expr
-            | [ List(head :: tail); expr ] -> toSymbol head, Lambda(tail |> List.map toSymbol, expr)
+            | [ List(head :: tail); expr ] -> toSymbol head, Lambda(env, tail |> List.map toSymbol, expr)
             | [ x; _ ] -> LispError.wrongType x "symbol"
             | xs -> LispError.wrongNumberOfArguments Keyword.Definition 2 xs)
 
-    let private (|LambdaForm|_|) =
+    let private (|LambdaForm|_|) env =
         matchSpecialForm Keyword.Lambda (function
-            | [ List parameters; body ] -> Lambda((parameters |> List.map toSymbol), body)
+            | [ List parameters; body ] -> Lambda(env, (parameters |> List.map toSymbol), body)
             | [ x; _ ] -> LispError.wrongType x "list"
             | xs -> LispError.wrongNumberOfArguments Keyword.Lambda 2 xs)
 
@@ -166,10 +164,10 @@ module SExpr =
 
     let rec eval (env: IEnvironment) expr =
         match expr with
-        | DefinitionForm(s, expr) ->
+        | DefinitionForm env (s, expr) ->
             env.Add(s, eval env expr)
             Nil
-        | LambdaForm lambda -> lambda
+        | LambdaForm env lambda -> lambda
         | ConditionalForm(condition, trueBranch, falseBranch) ->
             if condition |> eval env |> boolean then
                 trueBranch
@@ -183,9 +181,9 @@ module SExpr =
 
             match eval env head with
             | Builtin f -> f arguments
-            | Lambda(parameters, body) ->
+            | Lambda(lambdaEnv, parameters, body) ->
                 if parameters.Length = arguments.Length then
-                    eval (env.CreateFunctionEnvironment(parameters, arguments)) body
+                    eval (lambdaEnv.CreateFunctionEnvironment(parameters, arguments)) body
                 else
                     LispError.wrongNumberOfArguments (string head) parameters.Length arguments
             | expr -> LispError.wrongType expr "function"

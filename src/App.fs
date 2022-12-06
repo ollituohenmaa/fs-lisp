@@ -60,7 +60,7 @@ let rec Expr (getSemanticInfo: SExpr -> SemanticInfo) (expr: SExpr) =
                         yield Html.span " "
                         yield Expr getSemanticInfo x
                     yield Html.span [ prop.text ")" ] ] ]
-    | Lambda(parameters, body) ->
+    | Lambda(_, parameters, body) ->
         List
             [ Symbol Keyword.Lambda
               List

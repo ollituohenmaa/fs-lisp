@@ -6,9 +6,6 @@ open Feliz
 
 let samples = [| "(def (square x) (* x x))"; "(map square (range 1 10))" |]
 
-let keywords =
-    Set([ Keyword.Definition; Keyword.Lambda; Keyword.Conditional; Keyword.Quote ])
-
 type History =
     { Position: int
       Items: (string * SExpr option * Result<SExpr, string>)[] }
@@ -28,7 +25,7 @@ let rec Expr (depth: int) (expr: SExpr) =
         | Lambda _ -> ""
         | Number _ -> "number"
         | Boolean _ -> "boolean"
-        | Symbol x when keywords.Contains(x) -> "keyword"
+        | Symbol x when Keyword.isKeyWord (x) -> "keyword"
         | Symbol _ -> "symbol"
 
     match expr with

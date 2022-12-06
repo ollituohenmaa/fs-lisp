@@ -164,7 +164,7 @@ body {
     box-shadow: 2px 4px 8px 0 rgba(0, 0, 0, 0.3);
     overflow: auto;
     white-space: nowrap;
-    width: 32ch;
+    width: 34ch;
 }
 
 .env-table td:first-child div {
@@ -232,6 +232,11 @@ td:first-child div:hover {
 
 .keyword {
     color: var(--nord9);
+}
+
+.info {
+    color: var(--nord9);
+    opacity: 0.5;
 }
 
 .function {

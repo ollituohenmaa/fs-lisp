@@ -78,10 +78,10 @@ let EnvTable (env: Environment) onSymbolClick =
         let className = expr |> env.GetSemanticInfo |> getClassName
 
         match expr with
-        | Builtin _ -> Html.span [ prop.className className; prop.text "built-in" ]
+        | Builtin _ -> Html.span [ prop.className "info"; prop.text "<built-in>" ]
         | Nil -> Html.span [ prop.className className; prop.text "nil" ]
         | List _ -> Html.span [ prop.className className; prop.text "list" ]
-        | Lambda _ -> Html.span [ prop.className className; prop.text "lambda" ]
+        | Lambda _ -> Html.span [ prop.className "info"; prop.text "<lambda>" ]
         | Symbol s -> Html.span [ prop.className className; prop.text s ]
         | Number _
         | Boolean _ -> Expr env.GetSemanticInfo expr
@@ -91,6 +91,7 @@ let EnvTable (env: Environment) onSymbolClick =
               Html.tr
                   [ Html.td
                         [ prop.title symbol
+                          prop.className (Symbol symbol |> env.GetSemanticInfo |> getClassName)
                           prop.onClick (fun _ -> onSymbolClick symbol)
                           prop.children [ Html.div [ prop.text (string symbol) ] ] ]
                     Html.td [ getValueElement expr ] ] ]

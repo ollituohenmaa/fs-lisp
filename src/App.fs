@@ -4,7 +4,10 @@ open Browser
 open Browser.Types
 open Feliz
 
-let samples = [| "(def (square x) (* x x))"; "(map square (range 1 10))" |]
+let samples =
+    [| "(def pi 3.14159)"
+       "(def (square x) (* x x))"
+       "(map square (range 1 10))" |]
 
 type History =
     { Position: int
@@ -14,59 +17,90 @@ type History =
         { Position = this.Items.Length + 1
           Items = [| yield! this.Items; yield item |] }
 
-[<ReactComponent>]
-let rec Expr (depth: int) (expr: SExpr) =
+let getClassName semanticInfo =
+    match semanticInfo with
+    | SemanticInfo.Nil -> "nil"
+    | SemanticInfo.List -> "list"
+    | SemanticInfo.Function -> "function"
+    | SemanticInfo.Number -> "number"
+    | SemanticInfo.Boolean -> "boolean"
+    | SemanticInfo.Keyword -> "keyword"
+    | SemanticInfo.Variable -> "variable"
+    | SemanticInfo.Unknown -> "unknown"
 
-    let className =
-        match expr with
-        | Builtin _ -> "builtin"
-        | Nil -> "nil"
-        | List _ -> $"list-{depth % 2}"
-        | Lambda _ -> ""
-        | Number _ -> "number"
-        | Boolean _ -> "boolean"
-        | Symbol x when Keyword.isKeyWord (x) -> "keyword"
-        | Symbol _ -> "symbol"
+[<ReactComponent>]
+let rec Expr (getSemanticInfo: SExpr -> SemanticInfo) (expr: SExpr) =
+
+    let className = expr |> getSemanticInfo |> getClassName
 
     match expr with
     | List(head :: tail) ->
+        let parameters =
+            match head, tail with
+            | Symbol Keyword.Lambda, List(parameters) :: _
+            | Symbol Keyword.Definition, List(_ :: parameters) :: _ ->
+                try
+                    parameters |> List.map SExpr.toSymbol |> Set.ofList
+                with _ ->
+                    Set.empty
+            | Symbol Keyword.Definition, Symbol s :: _ -> Set.singleton s
+            | _ -> Set.empty
+
+        let getSemanticInfo expr =
+            match expr with
+            | Symbol s when parameters.Contains(s) -> SemanticInfo.Variable
+            | _ -> getSemanticInfo expr
+
         Html.span
             [ prop.className className
               prop.children
                   [ yield Html.span [ prop.text "(" ]
-                    yield Expr (depth + 1) head
+                    yield Expr getSemanticInfo head
                     for x in tail do
                         yield Html.span " "
-                        yield Expr (depth + 1) x
+                        yield Expr getSemanticInfo x
                     yield Html.span [ prop.text ")" ] ] ]
     | Lambda(parameters, body) ->
         List
-            [ Symbol "fn"
+            [ Symbol Keyword.Lambda
               List
                   [ for p in parameters do
                         Symbol p ]
               body ]
-        |> Expr depth
+        |> Expr getSemanticInfo
     | _ -> Html.span [ prop.className className; prop.text (string expr) ]
 
 [<ReactComponent>]
 let EnvTable (env: Environment) onSymbolClick =
+
+    let getValueElement expr =
+
+        let className = expr |> env.GetSemanticInfo |> getClassName
+
+        match expr with
+        | Builtin _ -> Html.span [ prop.className className; prop.text "built-in" ]
+        | Nil -> Html.span [ prop.className className; prop.text "nil" ]
+        | List _ -> Html.span [ prop.className className; prop.text "list" ]
+        | Lambda _ -> Html.span [ prop.className className; prop.text "lambda" ]
+        | Symbol s -> Html.span [ prop.className className; prop.text s ]
+        | Number _
+        | Boolean _ -> Expr env.GetSemanticInfo expr
+
+    let children =
+        [ for (symbol, expr) in env.ToArray() do
+              Html.tr
+                  [ Html.td
+                        [ prop.title symbol
+                          prop.onClick (fun _ -> onSymbolClick symbol)
+                          prop.children [ Html.div [ prop.text (string symbol) ] ] ]
+                    Html.td [ getValueElement expr ] ] ]
+
     Html.div
         [ prop.className "env-table"
-          prop.children
-              [ Html.table
-                    [ prop.children
-                          [ Html.tbody
-                                [ for (symbol, expr) in env.ToArray() do
-                                      Html.tr
-                                          [ Html.td
-                                                [ prop.title symbol
-                                                  prop.onClick (fun _ -> onSymbolClick symbol)
-                                                  prop.children [ Html.div [ prop.text (string symbol) ] ] ]
-                                            Html.td [ Expr 0 expr ] ] ] ] ] ] ]
+          prop.children [ Html.table [ Html.tbody children ] ] ]
 
 [<ReactComponent>]
-let HistoryBrowser history onItemClick =
+let HistoryBrowser getSemanticInfo history onItemClick =
 
     let ref = React.useRef None
 
@@ -86,12 +120,12 @@ let HistoryBrowser history onItemClick =
                               [ prop.onClick (fun _ -> onItemClick input)
                                 prop.children
                                     [ match expr with
-                                      | Some expr -> Expr 0 expr
+                                      | Some expr -> Expr getSemanticInfo expr
                                       | None -> Html.span input ] ]
                           match result with
                           | Error message ->
                               Html.dd [ Html.span [ prop.className "error"; prop.text (string message) ] ]
-                          | Ok expr -> Html.dd [ Expr 0 expr ] ] ] ]
+                          | Ok expr -> Html.dd [ Expr getSemanticInfo expr ] ] ] ]
 
 [<ReactComponent>]
 let Repl (env: Environment) =
@@ -148,7 +182,7 @@ let Repl (env: Environment) =
                     e.preventDefault ()
                     update input)
                 prop.children
-                    [ HistoryBrowser history setInput
+                    [ HistoryBrowser env.GetSemanticInfo history setInput
                       Html.input
                           [ prop.ref inputRef
                             prop.type' "text"

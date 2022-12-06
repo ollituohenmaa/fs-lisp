@@ -1,54 +1,137 @@
-html, body, div, span, applet, object, iframe,
-h1, h2, h3, h4, h5, h6, p, blockquote, pre,
-a, abbr, acronym, address, big, cite, code,
-del, dfn, em, img, ins, kbd, q, s, samp,
-small, strike, strong, sub, sup, tt, var,
-b, u, i, center,
-dl, dt, dd, ol, ul, li,
-fieldset, form, label, legend,
-table, caption, tbody, tfoot, thead, tr, th, td,
-article, aside, canvas, details, embed, 
-figure, figcaption, footer, header, hgroup, 
-menu, nav, output, ruby, section, summary,
-time, mark, audio, video {
-	margin: 0;
-	padding: 0;
-	border: 0;
-	font-size: 100%;
-	font: inherit;
-	vertical-align: baseline;
+@import "nord.css";
+
+html,
+body,
+div,
+span,
+applet,
+object,
+iframe,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+a,
+abbr,
+acronym,
+address,
+big,
+cite,
+code,
+del,
+dfn,
+em,
+img,
+ins,
+kbd,
+q,
+s,
+samp,
+small,
+strike,
+strong,
+sub,
+sup,
+tt,
+var,
+b,
+u,
+i,
+center,
+dl,
+dt,
+dd,
+ol,
+ul,
+li,
+fieldset,
+form,
+label,
+legend,
+table,
+caption,
+tbody,
+tfoot,
+thead,
+tr,
+th,
+td,
+article,
+aside,
+canvas,
+details,
+embed,
+figure,
+figcaption,
+footer,
+header,
+hgroup,
+menu,
+nav,
+output,
+ruby,
+section,
+summary,
+time,
+mark,
+audio,
+video {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    font-size: 100%;
+    font: inherit;
+    vertical-align: baseline;
 }
 
-article, aside, details, figcaption, figure, 
-footer, header, hgroup, menu, nav, section {
-	display: block;
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+menu,
+nav,
+section {
+    display: block;
 }
 
 body {
-	line-height: 1;
+    line-height: 1;
 }
 
-ol, ul {
-	list-style: none;
+ol,
+ul {
+    list-style: none;
 }
 
-blockquote, q {
-	quotes: none;
+blockquote,
+q {
+    quotes: none;
 }
 
-blockquote:before, blockquote:after,
-q:before, q:after {
-	content: '';
-	content: none;
+blockquote:before,
+blockquote:after,
+q:before,
+q:after {
+    content: '';
+    content: none;
 }
 
 table {
-	border-collapse: collapse;
-	border-spacing: 0;
+    border-collapse: collapse;
+    border-spacing: 0;
 }
 
 body {
-    background-color: hsl(210, 20%, 20%);
+    background-color: var(--nord0);
     color: var(--text);
     font-family: 'Jetbrains Mono', monospace;
     line-height: 150%;
@@ -69,7 +152,7 @@ body {
 }
 
 .env-table {
-    background-color: hsl(210, 20%, 25%);
+    background-color: var(--nord1);
     height: calc(100vh - 2rem);
     width: 100%;
     box-sizing: border-box;
@@ -81,21 +164,20 @@ body {
     box-shadow: 2px 4px 8px 0 rgba(0, 0, 0, 0.3);
     overflow: auto;
     white-space: nowrap;
-    width: 25vw;
+    width: 32ch;
 }
 
 .env-table td:first-child div {
     padding-right: 1rem;
     cursor: pointer;
     width: 12ch;
-    overflow:  hidden;
+    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--symbol);
 }
 
 .repl {
-    background-color: hsl(210, 20%, 25%);
+    background-color: var(--nord1);
     display: grid;
     grid-template-rows: 1fr max-content;
     height: calc(100vh - 2rem);
@@ -111,18 +193,23 @@ body {
     height: 100%
 }
 
+::selection {
+    background: var(--nord3);
+}
+
 input[type="text"] {
     border: 0;
     outline: 0;
-    background-color: hsl(210, 20%, 30%);
-    border-top: 1px solid hsl(210, 20%, 35%);
-    color: hsl(210, 20%, 90%);
+    background-color: var(--nord2);
+    border-top: 1px solid var(--nord3);
+    color: var(--nord4);
     padding: 1rem;
     border-radius: 0 0 4px 4px;
     font-family: 'Jetbrains Mono', monospace;
     font-size: 1rem;
     line-height: 150%;
     font-variant-ligatures: none;
+    caret-color: var(--nord4);
 }
 
 input:active {
@@ -138,63 +225,50 @@ dt {
     cursor: pointer;
 }
 
-dt:hover span, td:first-child div:hover {
-    color:  white;
+dt:hover span,
+td:first-child div:hover {
+    color: white;
 }
 
 .keyword {
-    color: hsl(170, 100%, 70%);
+    color: var(--nord9);
 }
 
-.symbol {
-    color: var(--symbol);
+.function {
+    color: var(--nord8);
+}
+
+.variable {
+    color: var(--nord4);
 }
 
 .error {
-    color: hsl(350, 90%, 70%);
+    color: var(--nord11);
 }
 
-.list-0 {
-    color: hsl(170, 90%, 45%);
+.unknown {
+    color: var(--nord12);
 }
 
-.list-1 {
-    color: hsl(200, 80%, 55%);
+.list {
+    color: var(--nord9);
 }
 
-.nil, .builtin {
-    color: hsl(210, 20%, 70%);
+.nil {
+    color: var(--nord10);
 }
 
-.boolean, .number {
-    color: var(--text);
+.boolean {
+    color: var(--nord7);
 }
 
-::-webkit-scrollbar {
-    width: 0.5rem;
-    height: 0.5rem;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-    background: hsla(210, 20%, 50%, 0.2);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: hsla(210, 20%, 50%, 0.4);
-}
-
-::-webkit-scrollbar-corner {
-    background: transparent;
+.number {
+    color: var(--nord15);
 }
 
 :root {
     font-size: 16px;
+    scrollbar-color: var(--nord3) transparent;
 
-    --symbol: hsl(200, 100%, 80%);
-    --text: hsl(210, 20%, 90%);
+    --text: var(--nord4);
 }

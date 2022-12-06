@@ -77,7 +77,7 @@ type IEnvironment =
 
 module SExpr =
 
-    let private toSymbol expr =
+    let toSymbol expr =
         match expr with
         | Symbol s -> s
         | _ -> LispError.wrongType expr "symbol"

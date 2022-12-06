@@ -1,5 +1,16 @@
 namespace FsLisp
 
+[<RequireQualifiedAccess>]
+type SemanticInfo =
+    | Nil
+    | List
+    | Function
+    | Number
+    | Boolean
+    | Keyword
+    | Variable
+    | Unknown
+
 type Environment(symbols: Map<string, SExpr>, ?parent: IEnvironment) =
 
     let mutable symbols = symbols
@@ -29,6 +40,23 @@ type Environment(symbols: Map<string, SExpr>, ?parent: IEnvironment) =
 
     member _.ToArray() =
         symbols |> Map.toArray |> Array.sortBy (fun (s, e) -> (exprOrdering e, s))
+
+    member this.GetSemanticInfo(expr) =
+        match expr with
+        | Builtin _ -> SemanticInfo.Function
+        | Nil -> SemanticInfo.Nil
+        | List _ -> SemanticInfo.List
+        | Lambda _ -> SemanticInfo.Function
+        | Number _ -> SemanticInfo.Number
+        | Boolean _ -> SemanticInfo.Boolean
+        | Symbol s when Keyword.isKeyWord s -> SemanticInfo.Keyword
+        | Symbol s ->
+            try
+                match this.GetSemanticInfo((this :> IEnvironment).Find(s)) with
+                | SemanticInfo.Function -> SemanticInfo.Function
+                | _ -> SemanticInfo.Variable
+            with _ ->
+                SemanticInfo.Unknown
 
     member this.Eval(expr) =
         try
@@ -64,14 +92,14 @@ module Environment =
         |> Map.ofList
 
     let private lambdas =
-        [ "(def (not x) (if x false true))"
+        [ "(def (not bool) (if bool false true))"
           "(def (abs x) (if (>= x 0) x (* x -1)))"
           "(def (fold f acc xs) (if (= xs (list)) acc (fold f (f acc (head xs)) (tail xs))))"
           "(def (reverse xs) (fold (fn (acc x) (cons x acc)) () xs))"
           "(def (count xs) (fold (fn (acc x) (+ acc 1)) 0 xs))"
           "(def (map g xs) (reverse (fold (fn (acc x) (cons (g x) acc)) () xs)))"
           "(def (filter g xs) (reverse (fold (fn (acc x) (if (g x) (cons x acc) acc)) () xs)))"
-          "(def (range x y) (if (>= x y) () (cons x (range (+ x 1) y))))" ]
+          "(def (range start stop) (if (>= start stop) () (cons start (range (+ start 1) stop))))" ]
         |> List.choose (fun x ->
             match Parser.parse x with
             | Ok expr -> Some expr

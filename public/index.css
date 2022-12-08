@@ -236,7 +236,7 @@ td:first-child div:hover {
 
 .info {
     color: var(--nord9);
-    opacity: 0.5;
+    opacity: 0.6;
 }
 
 .function {
@@ -252,7 +252,7 @@ td:first-child div:hover {
 }
 
 .unknown {
-    color: var(--nord12);
+    color: var(--nord11);
 }
 
 .list {
@@ -260,7 +260,8 @@ td:first-child div:hover {
 }
 
 .nil {
-    color: var(--nord10);
+    color: var(--nord9);
+    opacity: 0.6;
 }
 
 .boolean {
@@ -276,4 +277,35 @@ td:first-child div:hover {
     scrollbar-color: var(--nord3) transparent;
 
     --text: var(--nord4);
+}
+
+.tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.tooltip .tooltip-content {
+    visibility: hidden;
+    display: block;
+    width: max-content;
+    max-width: 60ch;
+    min-width: 2ch;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background-color: var(--nord3);
+    color: var(--nord6);
+    text-align: center;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    position: absolute;
+    left: 0;
+    top: 100%;
+    z-index: 1;
+    box-shadow: 2px 4px 8px 0 rgba(0, 0, 0, 0.3);
+    font-size: 0.8rem;
+}
+
+.tooltip:hover .tooltip-content {
+    visibility: visible;
 }

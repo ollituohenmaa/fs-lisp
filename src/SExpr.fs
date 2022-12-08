@@ -72,6 +72,9 @@ and IEnvironment =
     abstract Add: string * SExpr -> unit
     abstract Find: string -> SExpr
     abstract CreateFunctionEnvironment: list<string> * list<SExpr> -> IEnvironment
+    abstract Copy: unit -> IEnvironment
+    abstract ToArray: unit -> (string * SExpr)[]
+    abstract Eval: SExpr -> Result<SExpr, string>
 
 module SExpr =
 
@@ -165,8 +168,11 @@ module SExpr =
     let rec eval (env: IEnvironment) expr =
         match expr with
         | DefinitionForm env (s, expr) ->
-            env.Add(s, eval env expr)
-            Nil
+            if Keyword.isKeyWord s then
+                raise (LispError $"{s} is a reserved keyword.")
+            else
+                env.Add(s, eval env expr)
+                Nil
         | LambdaForm env lambda -> lambda
         | ConditionalForm(condition, trueBranch, falseBranch) ->
             if condition |> eval env |> boolean then

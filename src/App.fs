@@ -9,29 +9,66 @@ let samples =
        "(def (square x) (* x x))"
        "(map square (range 1 10))" |]
 
+type HistoryItem =
+    { Input: string
+      Expr: SExpr option
+      Result: Result<SExpr, string>
+      Env: IEnvironment }
+
 type History =
     { Position: int
-      Items: (string * SExpr option * Result<SExpr, string>)[] }
+      Items: HistoryItem[] }
 
     member this.Add(item) =
         { Position = this.Items.Length + 1
           Items = [| yield! this.Items; yield item |] }
 
-let getClassName semanticInfo =
-    match semanticInfo with
-    | SemanticInfo.Nil -> "nil"
-    | SemanticInfo.List -> "list"
-    | SemanticInfo.Function -> "function"
-    | SemanticInfo.Number -> "number"
-    | SemanticInfo.Boolean -> "boolean"
-    | SemanticInfo.Keyword -> "keyword"
-    | SemanticInfo.Variable -> "variable"
-    | SemanticInfo.Unknown -> "unknown"
+[<RequireQualifiedAccess>]
+type SemanticInfo =
+    | Lambda of expr: SExpr
+    | Builtin
+    | Keyword
+    | Variable of expr: SExpr
+    | Parameter
+    | Unknown
+    | FunctionDef
+
+let getClassName (getSemanticInfo: string -> SemanticInfo) expr =
+    match expr with
+    | Nil _ -> "nil"
+    | List _ -> "list"
+    | Builtin _ -> "function"
+    | Lambda _ -> "function"
+    | Number _ -> "number"
+    | Boolean _ -> "boolean"
+    | Symbol s ->
+        match getSemanticInfo s with
+        | SemanticInfo.Keyword -> "keyword"
+        | SemanticInfo.Lambda _
+        | SemanticInfo.Builtin
+        | SemanticInfo.FunctionDef -> "function"
+        | SemanticInfo.Variable _
+        | SemanticInfo.Parameter -> "variable"
+        | SemanticInfo.Unknown -> "unknown"
+
+let getSemanticInfoFromEnv (env: IEnvironment) s =
+    if Keyword.isKeyWord s then
+        SemanticInfo.Keyword
+    else
+        try
+            let expr = env.Find(s)
+
+            match expr with
+            | Lambda _ -> SemanticInfo.Lambda expr
+            | Builtin _ -> SemanticInfo.Builtin
+            | _ -> SemanticInfo.Variable expr
+        with _ ->
+            SemanticInfo.Unknown
 
 [<ReactComponent>]
-let rec Expr (getSemanticInfo: SExpr -> SemanticInfo) (expr: SExpr) =
+let rec Expr (getSemanticInfo: string -> SemanticInfo) (expr: SExpr) =
 
-    let className = expr |> getSemanticInfo |> getClassName
+    let className = getClassName getSemanticInfo expr
 
     match expr with
     | List(head :: tail) ->
@@ -46,10 +83,15 @@ let rec Expr (getSemanticInfo: SExpr -> SemanticInfo) (expr: SExpr) =
             | Symbol Keyword.Definition, Symbol s :: _ -> Set.singleton s
             | _ -> Set.empty
 
-        let getSemanticInfo expr =
-            match expr with
-            | Symbol s when parameters.Contains(s) -> SemanticInfo.Variable
-            | _ -> getSemanticInfo expr
+        let functionName =
+            match head, tail with
+            | Symbol Keyword.Definition, List(Symbol s :: _) :: _ -> Some s
+            | _ -> None
+
+        let getSemanticInfo s =
+            if Some s = functionName then SemanticInfo.FunctionDef
+            elif parameters.Contains(s) then SemanticInfo.Parameter
+            else getSemanticInfo s
 
         Html.span
             [ prop.className className
@@ -60,22 +102,40 @@ let rec Expr (getSemanticInfo: SExpr -> SemanticInfo) (expr: SExpr) =
                         yield Html.span " "
                         yield Expr getSemanticInfo x
                     yield Html.span [ prop.text ")" ] ] ]
-    | Lambda(_, parameters, body) ->
+    | Lambda(lambdaEnv, parameters, body) ->
         List
             [ Symbol Keyword.Lambda
               List
                   [ for p in parameters do
                         Symbol p ]
               body ]
-        |> Expr getSemanticInfo
+        |> Expr(getSemanticInfoFromEnv lambdaEnv)
+    | Builtin _ -> Html.span [ prop.className "info"; prop.text "<built-in>" ]
+    | Symbol s ->
+        match getSemanticInfo s with
+        | SemanticInfo.Lambda lambdaExpr ->
+            Html.div
+                [ prop.className "tooltip"
+                  prop.children
+                      [ Html.span [ prop.className className; prop.text (string expr) ]
+                        Html.span [ prop.className "tooltip-content"; prop.text (string lambdaExpr) ] ] ]
+        | SemanticInfo.Variable variableExpr ->
+            Html.div
+                [ prop.className "tooltip"
+                  prop.children
+                      [ Html.span [ prop.className className; prop.text (string expr) ]
+                        Html.span [ prop.className "tooltip-content"; prop.text (string variableExpr) ] ] ]
+        | _ -> Html.span [ prop.className className; prop.text (string expr) ]
     | _ -> Html.span [ prop.className className; prop.text (string expr) ]
 
 [<ReactComponent>]
-let EnvTable (env: Environment) onSymbolClick =
+let EnvTable (env: IEnvironment) onSymbolClick =
+
+    let getSemanticInfo = getSemanticInfoFromEnv env
 
     let getValueElement expr =
 
-        let className = expr |> env.GetSemanticInfo |> getClassName
+        let className = expr |> getClassName getSemanticInfo
 
         match expr with
         | Builtin _ -> Html.span [ prop.className "info"; prop.text "<built-in>" ]
@@ -84,14 +144,13 @@ let EnvTable (env: Environment) onSymbolClick =
         | Lambda _ -> Html.span [ prop.className "info"; prop.text "<lambda>" ]
         | Symbol s -> Html.span [ prop.className className; prop.text s ]
         | Number _
-        | Boolean _ -> Expr env.GetSemanticInfo expr
+        | Boolean _ -> Expr getSemanticInfo expr
 
     let children =
         [ for (symbol, expr) in env.ToArray() do
               Html.tr
                   [ Html.td
-                        [ prop.title symbol
-                          prop.className (Symbol symbol |> env.GetSemanticInfo |> getClassName)
+                        [ prop.className (Symbol symbol |> getClassName getSemanticInfo)
                           prop.onClick (fun _ -> onSymbolClick symbol)
                           prop.children [ Html.div [ prop.text (string symbol) ] ] ]
                     Html.td [ getValueElement expr ] ] ]
@@ -101,7 +160,7 @@ let EnvTable (env: Environment) onSymbolClick =
           prop.children [ Html.table [ Html.tbody children ] ] ]
 
 [<ReactComponent>]
-let HistoryBrowser getSemanticInfo history onItemClick =
+let HistoryBrowser history onItemClick =
 
     let ref = React.useRef None
 
@@ -115,21 +174,21 @@ let HistoryBrowser getSemanticInfo history onItemClick =
         [ prop.ref ref
           prop.className "history-browser"
           prop.children
-              [ for (input, expr, result) in history.Items do
+              [ for item in history.Items do
                     Html.dl
                         [ Html.dt
-                              [ prop.onClick (fun _ -> onItemClick input)
+                              [ prop.onClick (fun _ -> onItemClick item.Input)
                                 prop.children
-                                    [ match expr with
-                                      | Some expr -> Expr getSemanticInfo expr
-                                      | None -> Html.span input ] ]
-                          match result with
+                                    [ match item.Expr with
+                                      | Some expr -> Expr (getSemanticInfoFromEnv item.Env) expr
+                                      | None -> Html.span item.Input ] ]
+                          match item.Result with
                           | Error message ->
                               Html.dd [ Html.span [ prop.className "error"; prop.text (string message) ] ]
-                          | Ok expr -> Html.dd [ Expr getSemanticInfo expr ] ] ] ]
+                          | Ok expr -> Html.dd [ Expr (getSemanticInfoFromEnv item.Env) expr ] ] ] ]
 
 [<ReactComponent>]
-let Repl (env: Environment) =
+let Repl (env: IEnvironment) =
     let (input, setInput) = React.useState ""
 
     let (history, updateHistory) =
@@ -142,9 +201,21 @@ let Repl (env: Environment) =
 
         match Parser.parse input with
         | Ok expr ->
-            let result = env.Eval(expr)
-            updateHistory (fun history -> history.Add(input, Some expr, result))
-        | Error message -> updateHistory (fun history -> history.Add(input, None, Error message))
+            updateHistory (fun history ->
+                history.Add(
+                    { Input = input
+                      Expr = Some expr
+                      Result = env.Eval(expr)
+                      Env = env.Copy() }
+                ))
+        | Error message ->
+            updateHistory (fun history ->
+                history.Add(
+                    { Input = input
+                      Expr = None
+                      Result = Error message
+                      Env = env.Copy() }
+                ))
 
     React.useEffectOnce (fun () -> samples |> Array.iter update)
 
@@ -167,8 +238,7 @@ let Repl (env: Environment) =
             let position = max 0 (min (history.Position + direction) items.Length)
 
             if position < items.Length then
-                let input, _, _ = items.[position]
-                setInput input
+                setInput items.[position].Input
             else
                 setInput ""
 
@@ -183,7 +253,7 @@ let Repl (env: Environment) =
                     e.preventDefault ()
                     update input)
                 prop.children
-                    [ HistoryBrowser env.GetSemanticInfo history setInput
+                    [ HistoryBrowser history setInput
                       Html.input
                           [ prop.ref inputRef
                             prop.type' "text"
@@ -191,6 +261,6 @@ let Repl (env: Environment) =
                             prop.onChange setInput
                             prop.onKeyDown onInputKeyDown ] ] ] ]
 
-let env = Environment.createDefaultEnvironment ()
+let env: IEnvironment = Environment.createDefaultEnvironment ()
 
 ReactDOM.render (Repl(env), document.getElementById "root")

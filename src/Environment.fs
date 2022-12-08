@@ -1,17 +1,6 @@
 namespace FsLisp
 
-[<RequireQualifiedAccess>]
-type SemanticInfo =
-    | Nil
-    | List
-    | Function
-    | Number
-    | Boolean
-    | Keyword
-    | Variable
-    | Unknown
-
-type Environment(symbols: Map<string, SExpr>, ?parent: Environment) =
+type Environment(symbols: Map<string, SExpr>, ?parent: IEnvironment) =
 
     let mutable symbols = symbols
 
@@ -32,46 +21,34 @@ type Environment(symbols: Map<string, SExpr>, ?parent: Environment) =
         member _.Find(s) =
             match symbols.TryFind(s), parent with
             | Some value, _ -> value
-            | None, Some parent -> (parent :> IEnvironment).Find(s)
+            | None, Some parent -> parent.Find(s)
             | None, _ -> LispError.raise $"Symbol {s} is undefined."
 
         member this.CreateFunctionEnvironment(parameters: _ list, arguments: _ list) =
             Environment((parameters, arguments) ||> List.zip |> Map.ofList, this) :> IEnvironment
 
-    member _.ToArray() =
-        [| yield! symbols |> Map.toArray
-           match parent with
-           | Some parent -> yield! parent.ToArray()
-           | None -> () |]
-        |> Array.distinctBy fst
-        |> Array.sortBy (fun (s, e) -> (exprOrdering e, s))
+        member _.Copy() =
+            match parent with
+            | Some parent -> Environment(symbols, parent.Copy()) :> IEnvironment
+            | None -> Environment(symbols) :> IEnvironment
 
-    member this.GetSemanticInfo(expr) =
-        match expr with
-        | Builtin _ -> SemanticInfo.Function
-        | Nil -> SemanticInfo.Nil
-        | List _ -> SemanticInfo.List
-        | Lambda _ -> SemanticInfo.Function
-        | Number _ -> SemanticInfo.Number
-        | Boolean _ -> SemanticInfo.Boolean
-        | Symbol s when Keyword.isKeyWord s -> SemanticInfo.Keyword
-        | Symbol s ->
+        member _.ToArray() =
+            [| yield! symbols |> Map.toArray
+               match parent with
+               | Some parent -> yield! parent.ToArray()
+               | None -> () |]
+            |> Array.distinctBy fst
+            |> Array.sortBy (fun (s, e) -> (exprOrdering e, s))
+
+        member this.Eval(expr) =
             try
-                match this.GetSemanticInfo((this :> IEnvironment).Find(s)) with
-                | SemanticInfo.Function -> SemanticInfo.Function
-                | _ -> SemanticInfo.Variable
-            with _ ->
-                SemanticInfo.Unknown
-
-    member this.Eval(expr) =
-        try
-            SExpr.eval this expr |> Ok
-        with
-        | LispError s -> Error s
-        | exn when exn.Message = "Maximum call stack size exceeded" -> Error "Stack overflow (no, not the website)."
-        | exn ->
-            printfn "%A" exn
-            Error "Something went wrong."
+                SExpr.eval this expr |> Ok
+            with
+            | LispError s -> Error s
+            | exn when exn.Message = "Maximum call stack size exceeded" -> Error "Stack overflow (no, not the website)."
+            | exn ->
+                printfn "%A" exn
+                Error "Something went wrong."
 
 module Environment =
 
@@ -111,6 +88,6 @@ module Environment =
             | _ -> None)
 
     let createDefaultEnvironment () =
-        let env = Environment(builtins)
+        let env = Environment(builtins) :> IEnvironment
         lambdas |> List.iter (env.Eval >> ignore)
         env

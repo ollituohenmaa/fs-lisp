@@ -52,7 +52,7 @@ let getClassName (getSemanticInfo: string -> SemanticInfo) expr =
         | SemanticInfo.Unknown -> "unknown"
 
 let getSemanticInfoFromEnv (env: IEnvironment) s =
-    if Keyword.isKeyWord s then
+    if Keywords.contains s then
         SemanticInfo.Keyword
     else
         try
@@ -74,18 +74,18 @@ let rec Expr (getSemanticInfo: string -> SemanticInfo) (expr: SExpr) =
     | List(head :: tail) ->
         let parameters =
             match head, tail with
-            | Symbol Keyword.Lambda, List(parameters) :: _
-            | Symbol Keyword.Definition, List(_ :: parameters) :: _ ->
+            | Symbol Keywords.Lambda, List(parameters) :: _
+            | Symbol Keywords.Definition, List(_ :: parameters) :: _ ->
                 try
                     parameters |> List.map SExpr.toSymbol |> Set.ofList
                 with _ ->
                     Set.empty
-            | Symbol Keyword.Definition, Symbol s :: _ -> Set.singleton s
+            | Symbol Keywords.Definition, Symbol s :: _ -> Set.singleton s
             | _ -> Set.empty
 
         let functionName =
             match head, tail with
-            | Symbol Keyword.Definition, List(Symbol s :: _) :: _ -> Some s
+            | Symbol Keywords.Definition, List(Symbol s :: _) :: _ -> Some s
             | _ -> None
 
         let getSemanticInfo s =
@@ -104,7 +104,7 @@ let rec Expr (getSemanticInfo: string -> SemanticInfo) (expr: SExpr) =
                     yield Html.span [ prop.text ")" ] ] ]
     | Lambda(lambdaEnv, parameters, body) ->
         List
-            [ Symbol Keyword.Lambda
+            [ Symbol Keywords.Lambda
               List
                   [ for p in parameters do
                         Symbol p ]
@@ -153,7 +153,14 @@ let EnvTable (env: IEnvironment) onSymbolClick =
                         [ prop.className (Symbol symbol |> getClassName getSemanticInfo)
                           prop.onClick (fun _ -> onSymbolClick symbol)
                           prop.children [ Html.div [ prop.text (string symbol) ] ] ]
-                    Html.td [ getValueElement expr ] ] ]
+                    Html.td [ getValueElement expr ] ]
+          for keyword in Keywords.asArray do
+              Html.tr
+                  [ Html.td
+                        [ prop.className "keyword"
+                          prop.onClick (fun _ -> onSymbolClick keyword)
+                          prop.children [ Html.div [ prop.text keyword ] ] ]
+                    Html.td [ Html.span [ prop.className "info"; prop.text "keyword" ] ] ] ]
 
     Html.div
         [ prop.className "env-table"
@@ -189,7 +196,9 @@ let HistoryBrowser history onItemClick =
 
 [<ReactComponent>]
 let Repl (env: IEnvironment) =
-    let (input, setInput) = React.useState ""
+    let (input, updateInput) = React.useStateWithUpdater ""
+
+    let setInput input = updateInput (fun _ -> input)
 
     let (history, updateHistory) =
         React.useStateWithUpdater ({ Position = 0; Items = [||] })
@@ -244,8 +253,18 @@ let Repl (env: IEnvironment) =
 
             updateHistory (fun history -> { history with Position = position })
 
+    let insertAtCursor text =
+        let selectionStart, selectionEnd =
+            match inputRef.current with
+            | Some current ->
+                let element = unbox<HTMLInputElement> current
+                element.selectionStart, element.selectionEnd
+            | None -> 0, 0
+
+        updateInput (fun input -> input.Substring(0, selectionStart) + text + input.Substring(selectionEnd))
+
     React.fragment
-        [ EnvTable env setInput
+        [ EnvTable env insertAtCursor
           Html.form
               [ prop.className "repl"
                 prop.spellcheck false

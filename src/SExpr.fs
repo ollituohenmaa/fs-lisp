@@ -12,7 +12,7 @@ exception LispError of message: string with
     static member wrongNumberOfArguments name expected got =
         LispError.raise $"Wrong number of arguments for {name}: expected {expected}, got {List.length got}."
 
-module Keyword =
+module Keywords =
 
     [<Literal>]
     let Definition = "def"
@@ -38,7 +38,9 @@ module Keyword =
     let private keywords =
         Set([ Definition; Lambda; Conditional; Quote; Eval; And; Or ])
 
-    let isKeyWord = keywords.Contains
+    let contains = keywords.Contains
+
+    let asArray = keywords |> Set.toArray
 
 [<CustomEquality; NoComparison>]
 type SExpr =
@@ -153,41 +155,41 @@ module SExpr =
         | _ -> None
 
     let private (|DefinitionForm|_|) env =
-        matchSpecialForm Keyword.Definition (function
+        matchSpecialForm Keywords.Definition (function
             | [ Symbol s; expr ] -> s, expr
             | [ List(head :: tail); expr ] -> toSymbol head, Lambda(env, tail |> List.map toSymbol, expr)
             | [ x; _ ] -> LispError.wrongType x "symbol"
-            | xs -> LispError.wrongNumberOfArguments Keyword.Definition 2 xs)
+            | xs -> LispError.wrongNumberOfArguments Keywords.Definition 2 xs)
 
     let private (|LambdaForm|_|) env =
-        matchSpecialForm Keyword.Lambda (function
+        matchSpecialForm Keywords.Lambda (function
             | [ List parameters; body ] -> Lambda(env, (parameters |> List.map toSymbol), body)
             | [ x; _ ] -> LispError.wrongType x "list"
-            | xs -> LispError.wrongNumberOfArguments Keyword.Lambda 2 xs)
+            | xs -> LispError.wrongNumberOfArguments Keywords.Lambda 2 xs)
 
     let private (|ConditionalForm|_|) =
-        matchSpecialForm Keyword.Conditional (function
+        matchSpecialForm Keywords.Conditional (function
             | [ condition; trueBranch; falseBranch ] -> condition, trueBranch, falseBranch
-            | xs -> LispError.wrongNumberOfArguments Keyword.Conditional 3 xs)
+            | xs -> LispError.wrongNumberOfArguments Keywords.Conditional 3 xs)
 
     let private (|QuoteForm|_|) =
-        matchSpecialForm Keyword.Quote (function
+        matchSpecialForm Keywords.Quote (function
             | [ x ] -> x
-            | xs -> LispError.wrongNumberOfArguments Keyword.Quote 1 xs)
+            | xs -> LispError.wrongNumberOfArguments Keywords.Quote 1 xs)
 
     let private (|EvalForm|_|) =
-        matchSpecialForm Keyword.Eval (function
+        matchSpecialForm Keywords.Eval (function
             | [ x ] -> x
-            | xs -> LispError.wrongNumberOfArguments Keyword.Eval 1 xs)
+            | xs -> LispError.wrongNumberOfArguments Keywords.Eval 1 xs)
 
-    let private (|AndForm|_|) = matchSpecialForm Keyword.And id
+    let private (|AndForm|_|) = matchSpecialForm Keywords.And id
 
-    let private (|OrForm|_|) = matchSpecialForm Keyword.Or id
+    let private (|OrForm|_|) = matchSpecialForm Keywords.Or id
 
     let rec eval (env: IEnvironment) expr =
         match expr with
         | DefinitionForm env (s, expr) ->
-            if Keyword.isKeyWord s then
+            if Keywords.contains s then
                 raise (LispError $"{s} is a reserved keyword.")
             else
                 env.Add(s, eval env expr)

@@ -26,7 +26,10 @@ module Keyword =
     [<Literal>]
     let Quote = "quote"
 
-    let private keywords = Set([ Definition; Lambda; Conditional; Quote ])
+    [<Literal>]
+    let Eval = "eval"
+
+    let private keywords = Set([ Definition; Lambda; Conditional; Quote; Eval ])
 
     let isKeyWord = keywords.Contains
 
@@ -165,6 +168,11 @@ module SExpr =
             | [ x ] -> x
             | xs -> LispError.wrongNumberOfArguments Keyword.Quote 1 xs)
 
+    let private (|EvalForm|_|) =
+        matchSpecialForm Keyword.Eval (function
+            | [ x ] -> x
+            | xs -> LispError.wrongNumberOfArguments Keyword.Eval 1 xs)
+
     let rec eval (env: IEnvironment) expr =
         match expr with
         | DefinitionForm env (s, expr) ->
@@ -180,7 +188,8 @@ module SExpr =
             else
                 falseBranch
             |> eval env
-        | QuoteForm list -> list
+        | QuoteForm expr -> expr
+        | EvalForm expr -> expr |> eval env |> eval env
         | Symbol s -> env.Find(s)
         | List(head :: tail) ->
             let arguments = tail |> List.map (eval env)

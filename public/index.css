@@ -227,7 +227,7 @@ dt {
 
 dt:hover span,
 td:first-child div:hover {
-    color: white;
+    color: var(--nord6);
 }
 
 .keyword {
@@ -235,8 +235,7 @@ td:first-child div:hover {
 }
 
 .info {
-    color: var(--nord9);
-    opacity: 0.6;
+    color: var(--nord10);
 }
 
 .function {
@@ -252,7 +251,7 @@ td:first-child div:hover {
 }
 
 .unknown {
-    color: var(--nord11);
+    color: var(--nord12);
 }
 
 .list {
@@ -261,7 +260,6 @@ td:first-child div:hover {
 
 .nil {
     color: var(--nord9);
-    opacity: 0.6;
 }
 
 .boolean {

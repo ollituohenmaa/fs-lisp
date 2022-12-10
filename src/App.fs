@@ -110,7 +110,7 @@ let rec Expr (getSemanticInfo: string -> SemanticInfo) (expr: SExpr) =
                         Symbol p ]
               body ]
         |> Expr(getSemanticInfoFromEnv lambdaEnv)
-    | Builtin _ -> Html.span [ prop.className "info"; prop.text "<built-in>" ]
+    | Builtin _ -> Html.span [ prop.className "info"; prop.text "built-in" ]
     | Symbol s ->
         match getSemanticInfo s with
         | SemanticInfo.Lambda lambdaExpr ->
@@ -138,10 +138,10 @@ let EnvTable (env: IEnvironment) onSymbolClick =
         let className = expr |> getClassName getSemanticInfo
 
         match expr with
-        | Builtin _ -> Html.span [ prop.className "info"; prop.text "<built-in>" ]
+        | Builtin _ -> Html.span [ prop.className "info"; prop.text "built-in" ]
         | Nil -> Html.span [ prop.className className; prop.text "nil" ]
         | List _ -> Html.span [ prop.className className; prop.text "list" ]
-        | Lambda _ -> Html.span [ prop.className "info"; prop.text "<lambda>" ]
+        | Lambda _ -> Html.span [ prop.className "info"; prop.text "lambda" ]
         | Symbol s -> Html.span [ prop.className className; prop.text s ]
         | Number _
         | Boolean _ -> Expr getSemanticInfo expr

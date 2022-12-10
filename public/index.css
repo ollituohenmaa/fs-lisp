@@ -231,15 +231,19 @@ td:first-child div:hover {
 }
 
 .keyword {
-    color: var(--nord9);
+    color: var(--nord7);
 }
 
 .info {
     color: var(--nord10);
 }
 
-.function {
+.lambda {
     color: var(--nord8);
+}
+
+.builtin {
+    color: var(--nord9);
 }
 
 .variable {
@@ -255,11 +259,11 @@ td:first-child div:hover {
 }
 
 .list {
-    color: var(--nord9);
+    color: var(--nord10);
 }
 
 .nil {
-    color: var(--nord9);
+    color: var(--nord10);
 }
 
 .boolean {

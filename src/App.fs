@@ -45,8 +45,8 @@ let getClassName (getSemanticInfo: string -> SemanticInfo) expr =
         match getSemanticInfo s with
         | SemanticInfo.Keyword -> "keyword"
         | SemanticInfo.Lambda _
-        | SemanticInfo.Builtin
-        | SemanticInfo.FunctionDef -> "function"
+        | SemanticInfo.FunctionDef -> "lambda"
+        | SemanticInfo.Builtin -> "builtin"
         | SemanticInfo.Variable _
         | SemanticInfo.Parameter -> "variable"
         | SemanticInfo.Unknown -> "unknown"
@@ -146,14 +146,18 @@ let EnvTable (env: IEnvironment) onSymbolClick =
         | Number _
         | Boolean _ -> Expr getSemanticInfo expr
 
+    let isNotOperator (s: string) =
+        s.ToCharArray() |> Array.exists System.Char.IsLetterOrDigit
+
     let children =
         [ for (symbol, expr) in env.ToArray() do
-              Html.tr
-                  [ Html.td
-                        [ prop.className (Symbol symbol |> getClassName getSemanticInfo)
-                          prop.onClick (fun _ -> onSymbolClick symbol)
-                          prop.children [ Html.div [ prop.text (string symbol) ] ] ]
-                    Html.td [ getValueElement expr ] ]
+              if getSemanticInfo symbol <> SemanticInfo.Builtin || isNotOperator symbol then
+                  Html.tr
+                      [ Html.td
+                            [ prop.className (Symbol symbol |> getClassName getSemanticInfo)
+                              prop.onClick (fun _ -> onSymbolClick symbol)
+                              prop.children [ Html.div [ prop.text (string symbol) ] ] ]
+                        Html.td [ getValueElement expr ] ]
           for keyword in Keywords.asArray do
               Html.tr
                   [ Html.td

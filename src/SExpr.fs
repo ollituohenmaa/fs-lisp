@@ -29,7 +29,14 @@ module Keyword =
     [<Literal>]
     let Eval = "eval"
 
-    let private keywords = Set([ Definition; Lambda; Conditional; Quote; Eval ])
+    [<Literal>]
+    let And = "and"
+
+    [<Literal>]
+    let Or = "or"
+
+    let private keywords =
+        Set([ Definition; Lambda; Conditional; Quote; Eval; And; Or ])
 
     let isKeyWord = keywords.Contains
 
@@ -81,11 +88,6 @@ and IEnvironment =
 
 module SExpr =
 
-    let toSymbol expr =
-        match expr with
-        | Symbol s -> s
-        | _ -> LispError.wrongType expr "symbol"
-
     let private liftOperator operator (s: SExpr) (x: SExpr) =
         match s, x with
         | Number s, Number x -> (s, x) ||> operator
@@ -114,7 +116,12 @@ module SExpr =
     let lt = compareNumbers (<)
     let le = compareNumbers (<=)
 
-    let boolean x =
+    let toSymbol expr =
+        match expr with
+        | Symbol s -> s
+        | _ -> LispError.wrongType expr "symbol"
+
+    let toBoolean x =
         match x with
         | Nil -> false
         | Boolean b -> b
@@ -173,6 +180,10 @@ module SExpr =
             | [ x ] -> x
             | xs -> LispError.wrongNumberOfArguments Keyword.Eval 1 xs)
 
+    let private (|AndForm|_|) = matchSpecialForm Keyword.And id
+
+    let private (|OrForm|_|) = matchSpecialForm Keyword.Or id
+
     let rec eval (env: IEnvironment) expr =
         match expr with
         | DefinitionForm env (s, expr) ->
@@ -183,13 +194,15 @@ module SExpr =
                 Nil
         | LambdaForm env lambda -> lambda
         | ConditionalForm(condition, trueBranch, falseBranch) ->
-            if condition |> eval env |> boolean then
+            if condition |> eval env |> toBoolean then
                 trueBranch
             else
                 falseBranch
             |> eval env
         | QuoteForm expr -> expr
         | EvalForm expr -> expr |> eval env |> eval env
+        | AndForm xs -> xs |> List.forall (eval env >> toBoolean) |> Boolean
+        | OrForm xs -> xs |> List.exists (eval env >> toBoolean) |> Boolean
         | Symbol s -> env.Find(s)
         | List(head :: tail) ->
             let arguments = tail |> List.map (eval env)

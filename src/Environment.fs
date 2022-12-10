@@ -64,8 +64,6 @@ module Environment =
           "<=", SExpr.le
           "=", List.pairwise >> List.forall (fun (x, y) -> x = y) >> Boolean
           "<>", List.pairwise >> List.exists (fun (x, y) -> x <> y) >> Boolean
-          "and", List.forall SExpr.boolean >> Boolean
-          "or", List.exists SExpr.boolean >> Boolean
           "list", List
           "cons", SExpr.cons
           "head", SExpr.head

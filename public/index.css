@@ -188,7 +188,7 @@ body {
     box-shadow: 2px 4px 8px 0 rgba(0, 0, 0, 0.3);
 }
 
-.history-browser {
+.history {
     overflow-y: scroll;
     height: 100%
 }
@@ -202,14 +202,14 @@ input[type="text"] {
     outline: 0;
     background-color: var(--nord2);
     border-top: 1px solid var(--nord3);
-    color: var(--nord4);
+    color: var(--nord6);
     padding: 1rem;
     border-radius: 0 0 4px 4px;
     font-family: 'Jetbrains Mono', monospace;
     font-size: 1rem;
     line-height: 150%;
     font-variant-ligatures: none;
-    caret-color: var(--nord4);
+    caret-color: var(--nord6);
 }
 
 input:active {
@@ -234,8 +234,14 @@ td:first-child div:hover {
     color: var(--nord7);
 }
 
-.info {
-    color: var(--nord10);
+.comment {
+    color: var(--nord9);
+    margin-left: 1ch;
+    opacity: 0.7;
+}
+
+.comment:first-child {
+    margin-left: 0;
 }
 
 .lambda {
@@ -267,7 +273,7 @@ td:first-child div:hover {
 }
 
 .boolean {
-    color: var(--nord7);
+    color: var(--nord14);
 }
 
 .number {
@@ -275,7 +281,7 @@ td:first-child div:hover {
 }
 
 :root {
-    font-size: 16px;
+    font-size: 15px;
     scrollbar-color: var(--nord3) transparent;
 
     --text: var(--nord4);

@@ -40,13 +40,24 @@ and private readSExpr tokens =
     | "nil" :: tail -> Nil, tail
     | s :: tail -> Symbol s, tail
 
+let private parseComment (s: string) =
+    match s.Split([| ';' |], 2) with
+    | [| code; comment |] -> code, Some comment
+    | _ -> s, None
+
 let parse input =
-    try
-        match input |> tokenize |> readSExpr with
-        | expr, [] -> Ok expr
-        | _ -> Error "The input is not a single expression."
-    with
-    | LispError message -> Error message
-    | exn ->
-        printfn "%A" exn
-        Error "Something went wrong."
+    match parseComment input with
+    | "", comment -> Ok Nil, "", comment
+    | code, comment ->
+        let output =
+            try
+                match code |> tokenize |> readSExpr with
+                | expr, [] -> Ok expr
+                | _ -> Error "The input is not a single expression."
+            with
+            | LispError message -> Error message
+            | exn ->
+                printfn "%A" exn
+                Error "Something went wrong."
+
+        output, code.Trim(), comment

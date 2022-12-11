@@ -82,7 +82,7 @@ module Environment =
           "(def (range start stop) (if (>= start stop) () (cons start (range (+ start 1) stop))))" ]
         |> List.choose (fun x ->
             match Parser.parse x with
-            | Ok expr -> Some expr
+            | Ok expr, _, _ -> Some expr
             | _ -> None)
 
     let createDefaultEnvironment () =

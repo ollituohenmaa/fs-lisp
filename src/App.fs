@@ -5,17 +5,22 @@ open Browser.Types
 open Feliz
 
 let samples =
-    [| "(def pi 3.14159)"
+    [| "(def pi 3.14)"
        "(def (square x) (* x x))"
-       "(map square (range 1 10))" |]
+       "(def (circle-area r) (* pi (square r)))"
+       "(map circle-area (range 1 5)) ; Calculate the areas of circles with radius between 1 and 5 (not included)."
+       "(def (iter x s) (if (<= (abs (- (* s s) x)) 0.0001) s (iter x (* 0.5 (+ s (/ x s))))))"
+       "(def (sqrt x) (if (< x 0) nil (iter x 1)))"
+       "(sqrt 2)" |]
 
 type HistoryItem =
-    { Input: string
-      Expr: SExpr option
+    { Expr: SExpr option
       Result: Result<SExpr, string>
-      Env: IEnvironment }
+      Env: IEnvironment
+      Code: string
+      Comment: string option }
 
-type History =
+type HistoryModel =
     { Position: int
       Items: HistoryItem[] }
 
@@ -110,7 +115,7 @@ let rec Expr (getSemanticInfo: string -> SemanticInfo) (expr: SExpr) =
                         Symbol p ]
               body ]
         |> Expr(getSemanticInfoFromEnv lambdaEnv)
-    | Builtin _ -> Html.span [ prop.className "info"; prop.text "built-in" ]
+    | Builtin _ -> Html.span [ prop.className "comment"; prop.text ";built-in" ]
     | Symbol s ->
         match getSemanticInfo s with
         | SemanticInfo.Lambda lambdaExpr ->
@@ -138,10 +143,10 @@ let EnvTable (env: IEnvironment) onSymbolClick =
         let className = expr |> getClassName getSemanticInfo
 
         match expr with
-        | Builtin _ -> Html.span [ prop.className "info"; prop.text "built-in" ]
+        | Builtin _ -> Html.span [ prop.className "comment"; prop.text ";built-in" ]
         | Nil -> Html.span [ prop.className className; prop.text "nil" ]
-        | List _ -> Html.span [ prop.className className; prop.text "list" ]
-        | Lambda _ -> Html.span [ prop.className "info"; prop.text "lambda" ]
+        | List _ -> Html.span [ prop.className className; prop.text ";list" ]
+        | Lambda _ -> Html.span [ prop.className "comment"; prop.text ";lambda" ]
         | Symbol s -> Html.span [ prop.className className; prop.text s ]
         | Number _
         | Boolean _ -> Expr getSemanticInfo expr
@@ -164,14 +169,14 @@ let EnvTable (env: IEnvironment) onSymbolClick =
                         [ prop.className "keyword"
                           prop.onClick (fun _ -> onSymbolClick keyword)
                           prop.children [ Html.div [ prop.text keyword ] ] ]
-                    Html.td [ Html.span [ prop.className "info"; prop.text "keyword" ] ] ] ]
+                    Html.td [ Html.span [ prop.className "comment"; prop.text ";keyword" ] ] ] ]
 
     Html.div
         [ prop.className "env-table"
           prop.children [ Html.table [ Html.tbody children ] ] ]
 
 [<ReactComponent>]
-let HistoryBrowser history onItemClick =
+let History history onItemClick =
 
     let ref = React.useRef None
 
@@ -181,22 +186,32 @@ let HistoryBrowser history onItemClick =
             let element = unbox<HTMLDivElement> current
             element.scrollTop <- element.scrollHeight))
 
-    Html.div
-        [ prop.ref ref
-          prop.className "history-browser"
-          prop.children
-              [ for item in history.Items do
-                    Html.dl
-                        [ Html.dt
-                              [ prop.onClick (fun _ -> onItemClick item.Input)
-                                prop.children
-                                    [ match item.Expr with
-                                      | Some expr -> Expr (getSemanticInfoFromEnv item.Env) expr
-                                      | None -> Html.span item.Input ] ]
-                          match item.Result with
-                          | Error message ->
-                              Html.dd [ Html.span [ prop.className "error"; prop.text (string message) ] ]
-                          | Ok expr -> Html.dd [ Expr (getSemanticInfoFromEnv item.Env) expr ] ] ] ]
+    let children =
+        [ for item in history.Items do
+              Html.dl
+                  [ Html.dt
+                        [ prop.onClick (fun _ -> onItemClick item.Code)
+                          prop.children
+                              [ let comment =
+                                    match item.Comment with
+                                    | Some comment -> ";" + comment
+                                    | None -> ""
+
+                                match item.Expr with
+                                | _ when System.String.IsNullOrWhiteSpace(item.Code) ->
+                                    Html.span [ prop.className "comment"; prop.text comment ]
+                                | Some expr ->
+                                    React.fragment
+                                        [ Expr (getSemanticInfoFromEnv item.Env) expr
+                                          Html.span [ prop.className "comment"; prop.text comment ] ]
+
+                                | None -> Html.span item.Code ] ]
+                    Html.dd
+                        [ match item.Result with
+                          | Error message -> Html.span [ prop.className "error"; prop.text (string message) ]
+                          | Ok expr -> Expr (getSemanticInfoFromEnv item.Env) expr ] ] ]
+
+    Html.div [ prop.ref ref; prop.className "history"; prop.children children ]
 
 [<ReactComponent>]
 let Repl (env: IEnvironment) =
@@ -213,21 +228,24 @@ let Repl (env: IEnvironment) =
         setInput ""
 
         match Parser.parse input with
-        | Ok expr ->
+        | Ok expr, code, comment ->
             updateHistory (fun history ->
                 history.Add(
-                    { Input = input
-                      Expr = Some expr
+                    { Expr = Some expr
                       Result = env.Eval(expr)
-                      Env = env.Copy() }
+                      Env = env.Copy()
+                      Code = code
+                      Comment = comment }
                 ))
-        | Error message ->
+        | Error message, code, comment ->
             updateHistory (fun history ->
                 history.Add(
-                    { Input = input
-                      Expr = None
+                    { Expr = None
                       Result = Error message
-                      Env = env.Copy() }
+                      Env = env.Copy()
+                      Code = code
+
+                      Comment = comment }
                 ))
 
     React.useEffectOnce (fun () -> samples |> Array.iter update)
@@ -251,7 +269,7 @@ let Repl (env: IEnvironment) =
             let position = max 0 (min (history.Position + direction) items.Length)
 
             if position < items.Length then
-                setInput items.[position].Input
+                setInput items.[position].Code
             else
                 setInput ""
 
@@ -276,7 +294,7 @@ let Repl (env: IEnvironment) =
                     e.preventDefault ()
                     update input)
                 prop.children
-                    [ HistoryBrowser history setInput
+                    [ History history setInput
                       Html.input
                           [ prop.ref inputRef
                             prop.type' "text"

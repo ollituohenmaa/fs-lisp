@@ -24,8 +24,8 @@ type Environment(symbols: Map<string, SExpr>, ?parent: IEnvironment) =
             | None, Some parent -> parent.Find(s)
             | None, _ -> LispError.raise $"Symbol {s} is undefined."
 
-        member this.CreateFunctionEnvironment(parameters: _ list, arguments: _ list) =
-            Environment((parameters, arguments) ||> List.zip |> Map.ofList, this) :> IEnvironment
+        member this.CreateChild(bindings) =
+            Environment(Map.ofList bindings, this) :> IEnvironment
 
         member _.Copy() =
             match parent with
@@ -78,8 +78,10 @@ module Environment =
           "(def (reverse xs) (fold (fn (acc x) (cons x acc)) () xs))"
           "(def (count xs) (fold (fn (acc x) (+ acc 1)) 0 xs))"
           "(def (map f xs) (reverse (fold (fn (acc x) (cons (f x) acc)) () xs)))"
-          "(def (filter f xs) (reverse (fold (fn (acc x) (if (f x) (cons x acc) acc)) () xs)))"
-          "(def (range start stop) (if (>= start stop) () (cons start (range (+ start 1) stop))))" ]
+          "(def (filter predicate xs) (reverse (fold (fn (acc x) (if (predicate x) (cons x acc) acc)) () xs)))"
+          "(def (range start stop) (if (>= start stop) () (cons start (range (+ start 1) stop))))"
+          "(def (sqrt x) (letfn (iter (s) (if (<= (abs (- (* s s) x)) 0.0001) s (iter (/ (+ s (/ x s)) 2)))) (if (< x 0) nil (iter 1.0))))"
+          "(def (concat xs ys) (letfn (loop (xs ys) (if (= xs (list)) ys (loop (tail xs) (cons (head xs) ys)))) (loop (reverse xs) ys)))" ]
         |> List.choose (fun x ->
             match Parser.parse x with
             | Ok expr, _, _ -> Some expr

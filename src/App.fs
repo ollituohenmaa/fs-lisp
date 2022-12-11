@@ -5,13 +5,11 @@ open Browser.Types
 open Feliz
 
 let samples =
-    [| "(def pi 3.14)"
-       "(def (square x) (* x x))"
-       "(def (circle-area r) (* pi (square r)))"
-       "(map circle-area (range 1 5)) ; Calculate the areas of circles with radius between 1 and 5 (not included)."
-       "(def (iter x s) (if (<= (abs (- (* s s) x)) 0.0001) s (iter x (* 0.5 (+ s (/ x s))))))"
-       "(def (sqrt x) (if (< x 0) nil (iter x 1)))"
-       "(sqrt 2)" |]
+    [| "; Use def to create global variables/functions and let to bind values to names locally:"
+       "(def (circle-area r) (let (pi 3.14) (* r r pi)))"
+       "(def radii (range 1 5))"
+       "; Calculate the areas of circles with an integer radius between 1 and 5 (exclusive):"
+       "(map circle-area radii)" |]
 
 type HistoryItem =
     { Expr: SExpr option
@@ -78,15 +76,18 @@ let rec Expr (getSemanticInfo: string -> SemanticInfo) (expr: SExpr) =
     match expr with
     | List(head :: tail) ->
         let parameters =
-            match head, tail with
-            | Symbol Keywords.Lambda, List(parameters) :: _
-            | Symbol Keywords.Definition, List(_ :: parameters) :: _ ->
-                try
+            try
+                match head :: tail with
+                | Symbol Keywords.Lambda :: List(parameters) :: _
+                | Symbol Keywords.Definition :: List(_ :: parameters) :: _ ->
                     parameters |> List.map SExpr.toSymbol |> Set.ofList
-                with _ ->
-                    Set.empty
-            | Symbol Keywords.Definition, Symbol s :: _ -> Set.singleton s
-            | _ -> Set.empty
+                | Symbol Keywords.Definition :: Symbol s :: _ -> Set.singleton s
+                | Symbol Keywords.Let :: List [ Symbol s; _ ] :: _ -> Set.singleton s
+                | Symbol Keywords.LetLambda :: List [ Symbol name; List parameters; _ ] :: _ ->
+                    [ name; yield! parameters |> List.map SExpr.toSymbol ] |> Set.ofList
+                | _ -> Set.empty
+            with _ ->
+                Set.empty
 
         let functionName =
             match head, tail with
@@ -122,13 +123,13 @@ let rec Expr (getSemanticInfo: string -> SemanticInfo) (expr: SExpr) =
             Html.div
                 [ prop.className "tooltip"
                   prop.children
-                      [ Html.span [ prop.className className; prop.text (string expr) ]
+                      [ Html.span [ prop.className (className + " tooltip-child"); prop.text (string expr) ]
                         Html.span [ prop.className "tooltip-content"; prop.text (string lambdaExpr) ] ] ]
         | SemanticInfo.Variable variableExpr ->
             Html.div
                 [ prop.className "tooltip"
                   prop.children
-                      [ Html.span [ prop.className className; prop.text (string expr) ]
+                      [ Html.span [ prop.className (className + " tooltip-child"); prop.text (string expr) ]
                         Html.span [ prop.className "tooltip-content"; prop.text (string variableExpr) ] ] ]
         | _ -> Html.span [ prop.className className; prop.text (string expr) ]
     | _ -> Html.span [ prop.className className; prop.text (string expr) ]
@@ -145,7 +146,7 @@ let EnvTable (env: IEnvironment) onSymbolClick =
         match expr with
         | Builtin _ -> Html.span [ prop.className "comment"; prop.text ";built-in" ]
         | Nil -> Html.span [ prop.className className; prop.text "nil" ]
-        | List _ -> Html.span [ prop.className className; prop.text ";list" ]
+        | List _ -> Html.span [ prop.className "comment"; prop.text ";list" ]
         | Lambda _ -> Html.span [ prop.className "comment"; prop.text ";lambda" ]
         | Symbol s -> Html.span [ prop.className className; prop.text s ]
         | Number _
@@ -176,7 +177,7 @@ let EnvTable (env: IEnvironment) onSymbolClick =
           prop.children [ Html.table [ Html.tbody children ] ] ]
 
 [<ReactComponent>]
-let History history onItemClick =
+let History history =
 
     let ref = React.useRef None
 
@@ -188,28 +189,33 @@ let History history onItemClick =
 
     let children =
         [ for item in history.Items do
+              let comment =
+                  match item.Comment with
+                  | Some comment -> ";" + comment
+                  | None -> ""
+
               Html.dl
-                  [ Html.dt
-                        [ prop.onClick (fun _ -> onItemClick item.Code)
-                          prop.children
-                              [ let comment =
-                                    match item.Comment with
-                                    | Some comment -> ";" + comment
-                                    | None -> ""
+                  [ if comment <> "" || not (System.String.IsNullOrWhiteSpace(item.Code)) then
+                        Html.dt
+                            [ prop.children
+                                  [ match item.Expr with
+                                    | _ when System.String.IsNullOrWhiteSpace(item.Code) ->
+                                        Html.span [ prop.className "comment"; prop.text comment ]
+                                    | Some expr ->
+                                        React.fragment
+                                            [ Expr (getSemanticInfoFromEnv item.Env) expr
+                                              Html.span [ prop.className "comment"; prop.text comment ] ]
 
-                                match item.Expr with
-                                | _ when System.String.IsNullOrWhiteSpace(item.Code) ->
-                                    Html.span [ prop.className "comment"; prop.text comment ]
-                                | Some expr ->
-                                    React.fragment
-                                        [ Expr (getSemanticInfoFromEnv item.Env) expr
-                                          Html.span [ prop.className "comment"; prop.text comment ] ]
-
-                                | None -> Html.span item.Code ] ]
-                    Html.dd
-                        [ match item.Result with
-                          | Error message -> Html.span [ prop.className "error"; prop.text (string message) ]
-                          | Ok expr -> Expr (getSemanticInfoFromEnv item.Env) expr ] ] ]
+                                    | None -> Html.span item.Code ] ]
+                    if not (System.String.IsNullOrWhiteSpace(item.Code)) then
+                        Html.dd
+                            [ match item.Result with
+                              | Ok _ -> prop.className "result"
+                              | _ -> ()
+                              prop.children
+                                  [ match item.Result with
+                                    | Error message -> Html.span [ prop.className "error"; prop.text (string message) ]
+                                    | Ok expr -> Expr (getSemanticInfoFromEnv item.Env) expr ] ] ] ]
 
     Html.div [ prop.ref ref; prop.className "history"; prop.children children ]
 
@@ -244,7 +250,6 @@ let Repl (env: IEnvironment) =
                       Result = Error message
                       Env = env.Copy()
                       Code = code
-
                       Comment = comment }
                 ))
 
@@ -269,7 +274,14 @@ let Repl (env: IEnvironment) =
             let position = max 0 (min (history.Position + direction) items.Length)
 
             if position < items.Length then
-                setInput items.[position].Code
+                let item = items.[position]
+
+                let comment =
+                    match item.Comment with
+                    | Some comment -> ";" + comment
+                    | None -> ""
+
+                setInput (item.Code + comment)
             else
                 setInput ""
 
@@ -294,7 +306,7 @@ let Repl (env: IEnvironment) =
                     e.preventDefault ()
                     update input)
                 prop.children
-                    [ History history setInput
+                    [ History history
                       Html.input
                           [ prop.ref inputRef
                             prop.type' "text"

@@ -7,7 +7,7 @@ exception LispError of message: string with
     static member raise message = raise (LispError message)
 
     static member wrongType value expectedType =
-        LispError.raise $"Type mismatch: {value} is not a {expectedType}."
+        LispError.raise $"Type mismatch: {string value} is not a {expectedType}."
 
     static member wrongNumberOfArguments name expected got =
         LispError.raise $"Wrong number of arguments for {name}: expected {expected}, got {List.length got}."
@@ -16,6 +16,12 @@ module Keywords =
 
     [<Literal>]
     let Definition = "def"
+
+    [<Literal>]
+    let Let = "let"
+
+    [<Literal>]
+    let LetLambda = "letfn"
 
     [<Literal>]
     let Lambda = "fn"
@@ -36,7 +42,7 @@ module Keywords =
     let Or = "or"
 
     let private keywords =
-        Set([ Definition; Lambda; Conditional; Quote; Eval; And; Or ])
+        Set([ Definition; Let; LetLambda; Lambda; Conditional; Quote; Eval; And; Or ])
 
     let contains = keywords.Contains
 
@@ -83,7 +89,7 @@ type SExpr =
 and IEnvironment =
     abstract Add: string * SExpr -> unit
     abstract Find: string -> SExpr
-    abstract CreateFunctionEnvironment: list<string> * list<SExpr> -> IEnvironment
+    abstract CreateChild: list<string * SExpr> -> IEnvironment
     abstract Copy: unit -> IEnvironment
     abstract ToArray: unit -> (string * SExpr)[]
     abstract Eval: SExpr -> Result<SExpr, string>
@@ -161,6 +167,25 @@ module SExpr =
             | [ x; _ ] -> LispError.wrongType x "symbol"
             | xs -> LispError.wrongNumberOfArguments Keywords.Definition 2 xs)
 
+    let private (|LetForm|_|) =
+        matchSpecialForm Keywords.Let (function
+            | [ List [ Symbol symbol; value ]; body ] -> symbol, value, body
+            | [ List [ x; _ ]; _ ] -> LispError.wrongType x "symbol"
+            | [ _; _ ] -> LispError.raise "The first argument should be a list with 2 elements: (name value)."
+            | xs -> LispError.wrongNumberOfArguments Keywords.Let 2 xs)
+
+    let private (|LetLambdaForm|_|) =
+        matchSpecialForm Keywords.LetLambda (function
+            | [ List [ Symbol lambdaName; List lambdaParameters; lambdaBody ]; body ] ->
+                {| Name = lambdaName
+                   Parameters = lambdaParameters
+                   Body = lambdaBody |},
+                body
+            | [ _; _ ] ->
+                LispError.raise
+                    "The first argument should be a list with 3 elements: (fn-name fn-parameter-list fn-body)."
+            | xs -> LispError.wrongNumberOfArguments Keywords.Let 2 xs)
+
     let private (|LambdaForm|_|) env =
         matchSpecialForm Keywords.Lambda (function
             | [ List parameters; body ] -> Lambda(env, (parameters |> List.map toSymbol), body)
@@ -194,6 +219,18 @@ module SExpr =
             else
                 env.Add(s, eval env expr)
                 Nil
+        | LetForm(name, value, expr) ->
+            let childEnv = env.CreateChild([ name, eval env value ])
+            eval childEnv expr
+        | LetLambdaForm(lambdaBinding, body) ->
+            let childEnv = env.CreateChild([])
+
+            childEnv.Add(
+                lambdaBinding.Name,
+                Lambda(childEnv, lambdaBinding.Parameters |> List.map toSymbol, lambdaBinding.Body)
+            )
+
+            eval childEnv body
         | LambdaForm env lambda -> lambda
         | ConditionalForm(condition, trueBranch, falseBranch) ->
             if condition |> eval env |> toBoolean then
@@ -213,7 +250,7 @@ module SExpr =
             | Builtin f -> f arguments
             | Lambda(lambdaEnv, parameters, body) ->
                 if parameters.Length = arguments.Length then
-                    eval (lambdaEnv.CreateFunctionEnvironment(parameters, arguments)) body
+                    eval (lambdaEnv.CreateChild(List.zip parameters arguments)) body
                 else
                     LispError.wrongNumberOfArguments (string head) parameters.Length arguments
             | expr -> LispError.wrongType expr "function"

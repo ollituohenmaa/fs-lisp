@@ -22,8 +22,8 @@ type Number =
 
     override this.ToString() =
         match this with
-        | Int x -> string x
-        | Float x -> string x
+        | Int x -> $"{x}"
+        | Float x -> if x = floor x then $"%.1f{x}" else $"{x}"
 
     interface IEquatable<Number> with
 

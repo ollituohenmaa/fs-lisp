@@ -21,9 +21,6 @@ module Keywords =
     let Let = "let"
 
     [<Literal>]
-    let LetLambda = "letfn"
-
-    [<Literal>]
     let Lambda = "fn"
 
     [<Literal>]
@@ -42,7 +39,7 @@ module Keywords =
     let Or = "or"
 
     let private keywords =
-        Set([ Definition; Let; LetLambda; Lambda; Conditional; Quote; Eval; And; Or ])
+        Set([ Definition; Let; Lambda; Conditional; Quote; Eval; And; Or ])
 
     let contains = keywords.Contains
 
@@ -119,23 +116,18 @@ module SExpr =
             | [ x; _ ] -> LispError.wrongType x "symbol"
             | xs -> LispError.wrongNumberOfArguments Keywords.Definition 2 xs)
 
+    [<RequireQualifiedAccess>]
+    type LetBinding =
+        | Variable of name: string * value: SExpr * body: SExpr
+        | Lambda of lambdaName: string * lambdaParameters: list<string> * lambdaBody: SExpr * body: SExpr
+
     let private (|LetForm|_|) =
         matchSpecialForm Keywords.Let (function
-            | [ List [ Symbol symbol; value ]; body ] -> symbol, value, body
+            | [ List [ Symbol symbol; value ]; body ] -> LetBinding.Variable(symbol, value, body)
+            | [ List [ List(Symbol lambdaName :: lambdaParameters); lambdaBody ]; body ] ->
+                LetBinding.Lambda(lambdaName, lambdaParameters |> List.map toSymbol, lambdaBody, body)
             | [ List [ x; _ ]; _ ] -> LispError.wrongType x "symbol"
-            | [ _; _ ] -> LispError.raise "The first argument should be a list with 2 elements: (name value)."
-            | xs -> LispError.wrongNumberOfArguments Keywords.Let 2 xs)
-
-    let private (|LetLambdaForm|_|) =
-        matchSpecialForm Keywords.LetLambda (function
-            | [ List [ Symbol lambdaName; List lambdaParameters; lambdaBody ]; body ] ->
-                {| Name = lambdaName
-                   Parameters = lambdaParameters
-                   Body = lambdaBody |},
-                body
-            | [ _; _ ] ->
-                LispError.raise
-                    "The first argument should be a list with 3 elements: (fn-name fn-parameter-list fn-body)."
+            | [ _; _ ] -> LispError.raise "The first argument should be a list with 2 elements."
             | xs -> LispError.wrongNumberOfArguments Keywords.Let 2 xs)
 
     let private (|LambdaForm|_|) env =
@@ -171,18 +163,15 @@ module SExpr =
             else
                 env.Add(s, eval env expr)
                 Nil
-        | LetForm(name, value, expr) ->
-            let childEnv = env.CreateChild([ name, eval env value ])
-            eval childEnv expr
-        | LetLambdaForm(lambdaBinding, body) ->
-            let childEnv = env.CreateChild([])
-
-            childEnv.Add(
-                lambdaBinding.Name,
-                Lambda(childEnv, lambdaBinding.Parameters |> List.map toSymbol, lambdaBinding.Body)
-            )
-
-            eval childEnv body
+        | LetForm binding ->
+            match binding with
+            | LetBinding.Variable(name, value, body) ->
+                let childEnv = env.CreateChild([ name, eval env value ])
+                eval childEnv body
+            | LetBinding.Lambda(lambdaName, lambdaParameters, lambdaBody, body) ->
+                let childEnv = env.CreateChild([])
+                childEnv.Add(lambdaName, Lambda(childEnv, lambdaParameters, lambdaBody))
+                eval childEnv body
         | LambdaForm env lambda -> lambda
         | ConditionalForm(condition, trueBranch, falseBranch) ->
             if condition |> eval env |> toBoolean then

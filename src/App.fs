@@ -83,7 +83,7 @@ let rec Expr (getSemanticInfo: string -> SemanticInfo) (expr: SExpr) =
                     parameters |> List.map SExpr.toSymbol |> Set.ofList
                 | Symbol Keywords.Definition :: Symbol s :: _ -> Set.singleton s
                 | Symbol Keywords.Let :: List [ Symbol s; _ ] :: _ -> Set.singleton s
-                | Symbol Keywords.LetLambda :: List [ Symbol name; List parameters; _ ] :: _ ->
+                | Symbol Keywords.Let :: List [ List(Symbol name :: parameters); _ ] :: _ ->
                     [ name; yield! parameters |> List.map SExpr.toSymbol ] |> Set.ofList
                 | _ -> Set.empty
             with _ ->

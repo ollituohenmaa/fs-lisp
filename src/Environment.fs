@@ -18,14 +18,19 @@ type Environment(symbols: Map<string, SExpr>, ?parent: IEnvironment) =
 
         member _.Add(symbol, expr) = symbols <- symbols.Add(symbol, expr)
 
+        member _.AddToRoot(symbol, expr) =
+            match parent with
+            | Some parent -> parent.AddToRoot(symbol, expr)
+            | None -> symbols <- symbols.Add(symbol, expr)
+
         member _.Find(s) =
             match symbols.TryFind(s), parent with
             | Some value, _ -> value
             | None, Some parent -> parent.Find(s)
             | None, _ -> LispError.raise $"Symbol {s} is undefined."
 
-        member this.CreateChild(bindings) =
-            Environment(Map.ofList bindings, this) :> IEnvironment
+        member this.CreateChild(?bindings) =
+            Environment(bindings |> Option.defaultValue [] |> Map.ofList, this) :> IEnvironment
 
         member _.Copy() =
             match parent with

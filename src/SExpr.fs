@@ -85,8 +85,9 @@ type SExpr =
 
 and IEnvironment =
     abstract Add: string * SExpr -> unit
+    abstract AddToRoot: string * SExpr -> unit
     abstract Find: string -> SExpr
-    abstract CreateChild: list<string * SExpr> -> IEnvironment
+    abstract CreateChild: ?bindings: list<string * SExpr> -> IEnvironment
     abstract Copy: unit -> IEnvironment
     abstract ToArray: unit -> (string * SExpr)[]
     abstract Eval: SExpr -> Result<SExpr, string>
@@ -123,7 +124,7 @@ module SExpr =
 
     let private (|LetForm|_|) =
         matchSpecialForm Keywords.Let (function
-            | [ List [ Symbol symbol; value ]; body ] -> LetBinding.Variable(symbol, value, body)
+            | [ List [ Symbol name; value ]; body ] -> LetBinding.Variable(name, value, body)
             | [ List [ List(Symbol lambdaName :: lambdaParameters); lambdaBody ]; body ] ->
                 LetBinding.Lambda(lambdaName, lambdaParameters |> List.map toSymbol, lambdaBody, body)
             | [ List [ x; _ ]; _ ] -> LispError.wrongType x "symbol"
@@ -161,17 +162,19 @@ module SExpr =
             if Keywords.contains s then
                 raise (LispError $"{s} is a reserved keyword.")
             else
-                env.Add(s, eval env expr)
+                env.AddToRoot(s, eval env expr)
                 Nil
         | LetForm binding ->
-            match binding with
-            | LetBinding.Variable(name, value, body) ->
-                let childEnv = env.CreateChild([ name, eval env value ])
-                eval childEnv body
-            | LetBinding.Lambda(lambdaName, lambdaParameters, lambdaBody, body) ->
-                let childEnv = env.CreateChild([])
-                childEnv.Add(lambdaName, Lambda(childEnv, lambdaParameters, lambdaBody))
-                eval childEnv body
+            let childEnv = env.CreateChild()
+
+            let name, value, body =
+                match binding with
+                | LetBinding.Variable(name, value, body) -> name, eval env value, body
+                | LetBinding.Lambda(lambdaName, lambdaParameters, lambdaBody, body) ->
+                    lambdaName, Lambda(childEnv, lambdaParameters, lambdaBody), body
+
+            childEnv.Add(name, value)
+            eval childEnv body
         | LambdaForm env lambda -> lambda
         | ConditionalForm(condition, trueBranch, falseBranch) ->
             if condition |> eval env |> toBoolean then

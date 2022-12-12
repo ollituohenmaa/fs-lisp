@@ -194,9 +194,13 @@ body {
 }
 
 .history,
-.env-table {
-    border-top: 1px solid var(--nord1);
-    border-left: 1px solid var(--nord1);
+.env-table,
+input[type="text"],
+input:active {
+    border-top: 1px solid hsla(0, 0%, 100%, 0.05);
+    border-left: 1px solid hsla(0, 0%, 100%, 0.05);
+    border-bottom: 1px solid hsla(0, 0%, 0%, 0.2);
+    border-right: 1px solid hsla(0, 0%, 0%, 0.2);
 }
 
 ::selection {
@@ -204,11 +208,8 @@ body {
 }
 
 input[type="text"] {
-    border: 0;
     outline: 0;
     background-color: var(--nord1);
-    border-top: 1px solid var(--nord2);
-    border-left: 1px solid var(--nord2);
     color: var(--nord6);
     padding: 1rem;
     border-radius: 0 0 8px 8px;
@@ -220,7 +221,6 @@ input[type="text"] {
 }
 
 input:active {
-    border: 0;
     outline: 0;
 }
 

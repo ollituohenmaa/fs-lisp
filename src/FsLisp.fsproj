@@ -6,6 +6,7 @@
     <Compile Include="Number.fs" />
     <Compile Include="SExpr.fs" />
     <Compile Include="Parser.fs" />
+    <Compile Include="StdLib.fs" />
     <Compile Include="Environment.fs" />
     <Compile Include="App.fs" />
   </ItemGroup>

@@ -96,64 +96,16 @@ and IEnvironment =
 
 module SExpr =
 
-    let private liftOperator operator (s: SExpr) (x: SExpr) =
-        match s, x with
-        | Number s, Number x -> (s, x) ||> operator
-        | Number _, x -> LispError.wrongType x "number"
-        | s, _ -> LispError.wrongType s "number"
-
-    let private foldNumbers operator x0 =
-        List.fold (liftOperator (fun s x -> Number(operator s x))) x0
-
-    let private reduceNumbers operator =
-        List.reduce (liftOperator (fun s x -> Number(operator s x)))
-
-    let private compareNumbers predicate xs =
-        match xs with
-        | head :: tail -> tail |> List.forall (liftOperator predicate head) |> Boolean
-        | [] -> Boolean false
-
-    let add = foldNumbers (+) (Number(Int 0))
-    let sub = reduceNumbers (-)
-    let mul = foldNumbers (*) (Number(Int 1))
-    let div = reduceNumbers (/)
-    let rem = reduceNumbers (%)
-
-    let gt = compareNumbers (>)
-    let ge = compareNumbers (>=)
-    let lt = compareNumbers (<)
-    let le = compareNumbers (<=)
-
     let toSymbol expr =
         match expr with
         | Symbol s -> s
         | _ -> LispError.wrongType expr "symbol"
 
-    let toBoolean x =
+    let private toBoolean x =
         match x with
         | Nil -> false
         | Boolean b -> b
         | _ -> true
-
-    let cons xs =
-        match xs with
-        | [ x; List ys ] -> List(x :: ys)
-        | [ _; expr ] -> LispError.wrongType expr "list"
-        | _ -> LispError.wrongNumberOfArguments "cons" 2 xs
-
-    let head xs =
-        match xs with
-        | [ List(head :: _) ] -> head
-        | [ List [] ] -> Nil
-        | [ expr ] -> LispError.wrongType expr "list"
-        | _ -> LispError.wrongNumberOfArguments "head" 1 xs
-
-    let tail xs =
-        match xs with
-        | [ List(_ :: tail) ] -> List tail
-        | [ List [] ] -> List []
-        | [ expr ] -> LispError.wrongType expr "list"
-        | _ -> LispError.wrongNumberOfArguments "tail" 1 xs
 
     let private matchSpecialForm symbol fn expr =
         match expr with

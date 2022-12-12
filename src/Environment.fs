@@ -52,42 +52,7 @@ type Environment(symbols: Map<string, SExpr>, ?parent: IEnvironment) =
 
 module Environment =
 
-    let private builtins =
-        [ "+", SExpr.add
-          "-", SExpr.sub
-          "*", SExpr.mul
-          "/", SExpr.div
-          "%", SExpr.rem
-          ">", SExpr.gt
-          ">=", SExpr.ge
-          "<", SExpr.lt
-          "<=", SExpr.le
-          "=", List.pairwise >> List.forall (fun (x, y) -> x = y) >> Boolean
-          "<>", List.pairwise >> List.exists (fun (x, y) -> x <> y) >> Boolean
-          "list", List
-          "cons", SExpr.cons
-          "head", SExpr.head
-          "tail", SExpr.tail ]
-        |> List.map (fun (s, v) -> (s, Builtin v))
-        |> Map.ofList
-
-    let private lambdas =
-        [ "(def (not bool) (if bool false true))"
-          "(def (abs x) (if (>= x 0) x (* x -1)))"
-          "(def (fold f acc xs) (if (= xs (list)) acc (fold f (f acc (head xs)) (tail xs))))"
-          "(def (reverse xs) (fold (fn (acc x) (cons x acc)) () xs))"
-          "(def (count xs) (fold (fn (acc x) (+ acc 1)) 0 xs))"
-          "(def (map f xs) (reverse (fold (fn (acc x) (cons (f x) acc)) () xs)))"
-          "(def (filter predicate xs) (reverse (fold (fn (acc x) (if (predicate x) (cons x acc) acc)) () xs)))"
-          "(def (range start stop) (if (>= start stop) () (cons start (range (+ start 1) stop))))"
-          "(def (sqrt x) (letfn (iter (s) (if (<= (abs (- (* s s) x)) 0.0001) s (iter (/ (+ s (/ x s)) 2)))) (if (< x 0) nil (iter 1.0))))"
-          "(def (concat xs ys) (letfn (loop (xs ys) (if (= xs (list)) ys (loop (tail xs) (cons (head xs) ys)))) (loop (reverse xs) ys)))" ]
-        |> List.choose (fun x ->
-            match Parser.parse x with
-            | Ok expr, _, _ -> Some expr
-            | _ -> None)
-
     let createDefaultEnvironment () =
-        let env = Environment(builtins) :> IEnvironment
-        lambdas |> List.iter (env.Eval >> ignore)
+        let env = Environment(StdLib.builtins) :> IEnvironment
+        StdLib.lambdas |> List.iter (env.Eval >> ignore)
         env

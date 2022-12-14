@@ -1,4 +1,4 @@
-namespace FsLisp
+namespace FsLisp.Lang
 
 open System
 
@@ -120,7 +120,7 @@ module SExpr =
     [<RequireQualifiedAccess>]
     type LetBinding =
         | Variable of name: string * value: SExpr * body: SExpr
-        | Lambda of lambdaName: string * lambdaParameters: list<string> * lambdaBody: SExpr * body: SExpr
+        | Lambda of lambdaName: string * lambdaParameters: string list * lambdaBody: SExpr * body: SExpr
 
     let private (|LetForm|_|) =
         matchSpecialForm Keywords.Let (function

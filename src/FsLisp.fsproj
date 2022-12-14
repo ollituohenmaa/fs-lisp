@@ -3,12 +3,16 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Number.fs" />
-    <Compile Include="SExpr.fs" />
-    <Compile Include="Parser.fs" />
-    <Compile Include="StdLib.fs" />
-    <Compile Include="Environment.fs" />
-    <Compile Include="App.fs" />
+    <Compile Include="Lang/Number.fs" />
+    <Compile Include="Lang/SExpr.fs" />
+    <Compile Include="Lang/Parser.fs" />
+    <Compile Include="Lang/StdLib.fs" />
+    <Compile Include="Lang/Environment.fs" />
+    <Compile Include="App/SExprRenderer.fs" />
+    <Compile Include="App/EnvTable.fs" />
+    <Compile Include="App/History.fs" />
+    <Compile Include="App/Repl.fs" />
+    <Compile Include="App/Main.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Fable.Browser.Dom" Version="2.2.0" />

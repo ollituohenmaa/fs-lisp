@@ -1,4 +1,4 @@
-module FsLisp.StdLib
+module FsLisp.Lang.StdLib
 
 let private liftOperator operator (s: SExpr) (x: SExpr) =
     match s, x with

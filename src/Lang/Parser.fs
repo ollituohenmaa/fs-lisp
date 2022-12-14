@@ -1,4 +1,4 @@
-module FsLisp.Parser
+module FsLisp.Lang.Parser
 
 let private toOption<'a> (success, x: 'a) = if success then Some x else None
 

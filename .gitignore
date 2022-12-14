@@ -1,3 +1,5 @@
+.DS_Store
+
 # Fable generated files
 .fable
 *.fs.js

@@ -1,4 +1,4 @@
-namespace FsLisp
+namespace FsLisp.Lang
 
 open System
 

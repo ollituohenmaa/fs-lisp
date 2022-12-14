@@ -1,8 +1,8 @@
-namespace FsLisp
+namespace FsLisp.Lang
 
-type Environment(symbols: Map<string, SExpr>, ?parent: IEnvironment) =
+type Environment(?symbols: Map<string, SExpr>, ?parent: IEnvironment) =
 
-    let mutable symbols = symbols
+    let mutable symbols = symbols |> Option.defaultValue Map.empty
 
     let exprOrdering expr =
         match expr with

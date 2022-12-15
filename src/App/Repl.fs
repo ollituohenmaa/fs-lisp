@@ -66,7 +66,7 @@ let Repl (env: IEnvironment, initialInput: string[]) =
 
                 let comment =
                     match item.Comment with
-                    | Some comment -> ";" + comment
+                    | Some comment -> " ;" + comment
                     | None -> ""
 
                 setInput (item.Code + comment)

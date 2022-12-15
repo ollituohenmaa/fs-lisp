@@ -50,8 +50,10 @@ let History items =
                                         React.fragment
                                             [ SExprRenderer (getSemanticInfoFromEnv item.Env) expr
                                               Html.span [ prop.className "comment"; prop.text comment ] ]
-
-                                    | None -> Html.span item.Code ] ]
+                                    | None ->
+                                        React.fragment
+                                            [ Html.span item.Code
+                                              Html.span [ prop.className "comment"; prop.text comment ] ] ] ]
                     if not (System.String.IsNullOrWhiteSpace(item.Code)) then
                         Html.dd
                             [ match item.Result with

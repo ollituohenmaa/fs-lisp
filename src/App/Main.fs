@@ -1,6 +1,8 @@
 module FsLisp.App.Main
 
+open Fable.Core.JsInterop
 open Browser
+open Browser.Types
 open Feliz
 
 open FsLisp.Lang
@@ -16,3 +18,10 @@ let samples =
 let env: IEnvironment = Environment.createDefaultEnvironment ()
 
 ReactDOM.render (Repl(env, samples), document.getElementById "root")
+
+let fixHeight () =
+    (document.querySelector ".repl" :?> HTMLElement)?style?height <- $"calc({window.innerHeight}px - 1rem)"
+
+window.addEventListener ("resize", (fun _ -> fixHeight ()))
+
+fixHeight ()

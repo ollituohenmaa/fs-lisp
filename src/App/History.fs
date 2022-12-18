@@ -9,7 +9,7 @@ open FsLisp.App.SExprRenderer
 type HistoryItem =
     { Expr: SExpr option
       Result: Result<SExpr, string>
-      Env: IEnvironment
+      GetSemanticInfo: string -> SemanticInfo
       Code: string
       Comment: string option }
 
@@ -48,7 +48,7 @@ let History items =
                                         Html.span [ prop.className "comment"; prop.text comment ]
                                     | Some expr ->
                                         React.fragment
-                                            [ SExprRenderer (getSemanticInfoFromEnv item.Env) expr
+                                            [ SExprRenderer item.GetSemanticInfo expr
                                               Html.span [ prop.className "comment"; prop.text comment ] ]
                                     | None ->
                                         React.fragment
@@ -62,6 +62,6 @@ let History items =
                               prop.children
                                   [ match item.Result with
                                     | Error message -> Html.span [ prop.className "error"; prop.text (string message) ]
-                                    | Ok expr -> SExprRenderer (getSemanticInfoFromEnv item.Env) expr ] ] ] ]
+                                    | Ok expr -> SExprRenderer item.GetSemanticInfo expr ] ] ] ]
 
     Html.div [ prop.ref ref; prop.className "history"; prop.children children ]

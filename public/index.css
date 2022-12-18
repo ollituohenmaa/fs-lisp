@@ -169,7 +169,6 @@ body {
 
 .env-table td:first-child div {
     padding-right: 1rem;
-    cursor: pointer;
     width: 12ch;
     overflow: hidden;
     text-overflow: ellipsis;

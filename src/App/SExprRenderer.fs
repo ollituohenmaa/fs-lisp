@@ -3,34 +3,7 @@ module FsLisp.App.SExprRenderer
 open Feliz
 
 open FsLisp.Lang
-
-[<RequireQualifiedAccess>]
-type SemanticInfo =
-    | Lambda
-    | Builtin
-    | Keyword
-    | Variable
-    | Unknown
-
-    member this.ClassName =
-        match this with
-        | Keyword -> "keyword"
-        | Lambda -> "lambda"
-        | Builtin -> "builtin"
-        | Variable -> "variable"
-        | Unknown -> "unknown"
-
-let getSemanticInfoFromEnv (env: IEnvironment) s =
-    if Keywords.contains s then
-        SemanticInfo.Keyword
-    else
-        try
-            match env.Find(s) with
-            | Lambda _ -> SemanticInfo.Lambda
-            | Builtin _ -> SemanticInfo.Builtin
-            | _ -> SemanticInfo.Variable
-        with _ ->
-            SemanticInfo.Unknown
+open FsLisp.App.SemanticInfo
 
 [<ReactComponent>]
 let rec SExprRenderer (getSemanticInfo: string -> SemanticInfo) (expr: SExpr) =
@@ -76,7 +49,7 @@ let rec SExprRenderer (getSemanticInfo: string -> SemanticInfo) (expr: SExpr) =
                   [ for p in parameters do
                         Symbol p ]
               body ]
-        |> SExprRenderer(getSemanticInfoFromEnv lambdaEnv)
+        |> SExprRenderer lambdaEnv.GetSemanticInfo
     | Builtin _ -> Html.span [ prop.className "comment"; prop.text ";built-in" ]
     | _ ->
         let className =

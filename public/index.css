@@ -269,7 +269,7 @@ dd.result::before {
 }
 
 .unknown {
-    color: var(--nord11);
+    color: var(--nord4);
 }
 
 .list {

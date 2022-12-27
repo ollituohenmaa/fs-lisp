@@ -9,14 +9,17 @@ open FsLisp.App.SExprRenderer
 let EnvTable (bindings: (string * SemanticInfo * SExpr)[]) =
 
     let getValueElement expr =
-        match expr with
-        | Builtin _ -> Html.span [ prop.className "comment"; prop.text ";built-in" ]
-        | Nil -> Html.span [ prop.className "nil"; prop.text "nil" ]
-        | List _ -> Html.span [ prop.className "comment"; prop.text ";list" ]
-        | Lambda _ -> Html.span [ prop.className "comment"; prop.text ";lambda" ]
-        | Symbol _ -> failwith "This should never happen."
-        | Number _
-        | Boolean _ -> SExprRenderer (fun _ -> SemanticInfo.Unknown) expr
+        let className, text =
+            match expr with
+            | Builtin _ -> "comment", ";built-in"
+            | List _ -> "comment", ";list"
+            | Lambda _ -> "comment", ";lambda"
+            | Nil -> "nil", string expr
+            | Symbol _ -> "variable", string expr
+            | Number _ -> "number", string expr
+            | Boolean _ -> "boolean", string expr
+
+        Html.span [ prop.className className; prop.text text ]
 
     let isNotOperator (s: string) =
         s.ToCharArray() |> Array.exists System.Char.IsLetterOrDigit

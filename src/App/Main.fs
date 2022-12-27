@@ -13,13 +13,13 @@ open FsLisp.App.Repl
 
 [<ReactComponent>]
 let Root (env: IEnvironment) (samples: string[]) =
-    let (bindings, setBindings) = React.useState (env.ToArrayWithSemanticInfo())
+    let (bindings, setBindings) = React.useState (env.ToArray())
 
     let eval input =
         match Parser.parse input with
         | Ok expr, code, comment ->
             let result = env.Eval(expr)
-            setBindings (env.ToArrayWithSemanticInfo())
+            setBindings (env.ToArray())
 
             { Expr = Some expr
               Result = result
@@ -33,7 +33,7 @@ let Root (env: IEnvironment) (samples: string[]) =
               Code = code
               Comment = comment }
 
-    React.fragment [ EnvTable bindings; Repl eval samples ]
+    React.fragment [ EnvTable env.GetSemanticInfo bindings; Repl eval samples ]
 
 let samples =
     [| "; Use def to create global variables/functions and let to bind values to names locally:"

@@ -36,6 +36,3 @@ module SemanticInfo =
                     fromSExpr (this.Find(name))
                 with _ ->
                     SemanticInfo.Unknown
-
-        member this.ToArrayWithSemanticInfo() =
-            this.ToArray() |> Array.map (fun (name, value) -> name, fromSExpr value, value)

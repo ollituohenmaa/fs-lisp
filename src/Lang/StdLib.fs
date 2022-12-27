@@ -75,7 +75,7 @@ let lambdas =
       "(def (count xs) (fold (fn (acc x) (+ acc 1)) 0 xs))"
       "(def (map f xs) (reverse (fold (fn (acc x) (cons (f x) acc)) () xs)))"
       "(def (filter predicate xs) (reverse (fold (fn (acc x) (if (predicate x) (cons x acc) acc)) () xs)))"
-      "(def (range start stop) (if (>= start stop) () (cons start (range (+ start 1) stop))))"
+      "(def (range start stop) (let ((loop acc x) (if (< x start) acc (loop (cons x acc) (- x 1)))) (loop () (- stop 1))))"
       "(def (concat xs ys) (let ((loop xs ys) (if (= xs (list)) ys (loop (tail xs) (cons (head xs) ys)))) (loop (reverse xs) ys)))"
       "(def (sqrt x) (let ((iter s) (if (<= (abs (- (* s s) x)) 0.0001) s (iter (/ (+ s (/ x s)) 2)))) (if (< x 0) nil (iter 1.0))))" ]
     |> List.choose (fun x ->
